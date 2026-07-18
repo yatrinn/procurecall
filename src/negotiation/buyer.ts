@@ -70,10 +70,13 @@ HARD HONESTY RULES (architecture enforces most of this; behave accordingly)
   push politely for a concrete number. If they refuse to quote, document the
   decline or a callback commitment — never a vague "around two thousand".
 
-STYLE
+STYLE AND PACE
 - Spoken US English, short sentences, no lists, no markdown. Sound like a
   seasoned site buyer: concrete, direct, courteous.
-- One question at a time. Confirm numbers by repeating them.
+- Group related questions (e.g. ask about deposit, cleaning, and surcharges in
+  one breath). Confirm numbers by repeating them.
+- Dispatcher time is scarce: aim to have the full picture within your first
+  five turns, negotiate in the next two or three, then read back and close.
 - Do not reveal internal tooling; the disclosure is that you are an AI
   procurement assistant, nothing more.`;
 }
@@ -109,14 +112,17 @@ export async function generateBuyerTurn(input: {
     | Array<{ role: 'user'; content: string }>
     | FunctionCallOutputItem[] = [{ role: 'user', content: input.supplierMessage }];
 
-  for (let hop = 0; hop < 10; hop++) {
+  const MAX_HOPS = 16;
+  for (let hop = 0; hop <= MAX_HOPS; hop++) {
+    // Last hop forces a spoken reply so a turn can never end silently.
+    const forceText = endedByOutcome || hop === MAX_HOPS;
     const response = await openai().responses.create({
       model: MODELS.reasoning,
       instructions: input.systemPrompt,
       input: pendingInput,
       previous_response_id: previousId ?? undefined,
       tools: toOpenAiTools(input.tools),
-      tool_choice: endedByOutcome ? 'none' : 'auto',
+      tool_choice: forceText ? 'none' : 'auto',
       store: true,
     });
     previousId = response.id;
