@@ -16,9 +16,20 @@
 - GitHub repo `yatrinn/procurecall` exists, public, empty — ready for first push.
 - Planning docs written: PLAN, ARCHITECTURE, DATA_MODEL, DESIGN_SYSTEM, TASKS.
 
+- Next.js 16 scaffold builds clean (strict TS, Tailwind 4, Vitest, Playwright configured).
+- Supabase: schema migrated (14 tables), RLS deny-all verified empirically (publishable
+  key gets `[]` / 42501), seed idempotent: 1 vertical + 3 simulated suppliers with
+  private policies (transparent premium, low headline, hard dispatcher).
+- Design system + shell: tokens, Archivo Expanded / Instrument Sans / JetBrains Mono.
+  Screenshot critique vs AGENTS.md §4 done: no banned look present — cool ground (not
+  cream), no serif display, no terracotta, no dark+acid scheme, no broadsheet density,
+  numbers in mono. Watch item: keep rules/borders minimal, keep hi-vis scarce.
+
 ## What does not work yet
 
-- Everything else. No code scaffolded, no schema, no deploy.
+- Intake (voice, document), confirmation + fingerprint, negotiation, price engine,
+  truth layer, evidence ledger, demo, replay — not built yet.
+- No production deploy yet.
 
 ## Deployment
 
