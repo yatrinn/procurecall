@@ -49,18 +49,30 @@
   confirmation, structured outcome, quote + lines persisted.
 - Live board (polling) and functional decision room deployed.
 
+## Gate 2 — challenge compliance: core demonstrated in production
+
+- Three distinct supplier behaviors ran live (text tier) on one fingerprinted spec:
+  A transparent premium (opened 895 net), B low headline (79 EUR/day headline became
+  821.25 net once fees were extracted), C hard dispatcher (demanded details, range
+  first, 820 net).
+- **Verified negotiated improvement:** supplier A moved 895.00 → 805.00 EUR net
+  (−10.1%) during the call after the buyer cited a truth-layer-verified competing
+  quote (Neckar, 820 net, matching fingerprint). Recorded as `fee_waived`
+  negotiation event (9000 → 0 cents pickup) with transcript refs. The concession came
+  from the supplier's private ladder condition being met — not from a script.
+- Buyer arithmetic checks work (caught a supplier's wrong day count and a wrong total
+  in earlier runs; both corrected in-call).
+- Every call ended in a structured outcome; every quote line carries a transcript ref.
+
 ## What does not work yet
 
 - Price engine exists (`src/core/price-engine.ts`) but is not yet wired into quotes
   (no breakdown persisted, no red-flag display). Ranking is a plain sort, clearly
   labeled as not a recommendation.
-- Only supplier A exercised so far; B (hidden fees) and C (hard dispatcher) seeded
-  but not yet run. No negotiation-improvement demo yet (needs a second confirmed
-  quote as leverage).
 - No voice-tier negotiation call yet; no recordings; no evidence-audio scrubbing.
-- Post-call validator, evidence ledger, verified replay, public /demo, adversarial
+- Post-call validator, evidence ledger UI, verified replay, public /demo, adversarial
   suite, eval lab, moving vertical: not built yet.
-- Voice usage tracking table exists; 0 minutes consumed so far.
+- Voice usage: 0 minutes consumed so far.
 
 ## Deployment
 
