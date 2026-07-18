@@ -20,8 +20,15 @@ Source: https://supabase.com/docs/guides/api/api-keys
   publishable key gets 401 `"Secret API key required"`. Probe publishable-key access
   via a table path instead; PostgREST error `PGRST205` (table not found) still proves
   authentication succeeded.
-- supabase-js: verify version supports new key format before use (step 6); pass the
-  key as the second argument to `createClient` as usual.
+- supabase-js `2.110.7` (requires Node ≥22): **verified working with `sb_secret_` keys**
+  server-side — seed script performed upserts successfully. `createClient(url, key)`
+  with `auth: { persistSession: false, autoRefreshToken: false }` for server use.
+- RLS posture verified empirically: with tables under RLS and zero policies, the
+  publishable key gets `[]` on select and error `42501` on insert; the secret key has
+  full access. All app data access goes through server routes.
+- Migrations applied with `npx supabase db push --password "$SUPABASE_DB_PASSWORD"`
+  (project linked via `npx supabase link`). A Docker warning about the migrations
+  catalog cache is harmless for remote pushes.
 
 ### Environment incident log
 

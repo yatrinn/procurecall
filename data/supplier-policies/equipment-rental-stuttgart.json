@@ -1,0 +1,165 @@
+{
+  "description": "Private commercial policies for the three simulated demo suppliers. Each policy is a price sheet + floor + concession ladder + disclosure policy + behavioral profile. NEVER a script, NEVER a predetermined final price. The buyer agent never sees this file's contents; only the supplier policy engine reads it. Supplier names are fictional and every record is labeled simulated.",
+  "vertical_slug": "equipment-rental-stuttgart",
+  "currency": "EUR",
+  "suppliers": [
+    {
+      "key": "supplier_a",
+      "name": "Hebetec Arbeitsbühnen Stuttgart",
+      "source": "simulated",
+      "is_simulated": true,
+      "location": "Stuttgart-Feuerbach",
+      "distance_km": 8,
+      "supported_categories": ["scissor_lift", "boom_lift"],
+      "operating_hours": "Mon-Fri 06:30-17:00",
+      "contact": { "kind": "simulated_dispatch" },
+      "policy": {
+        "behavior_profile": "transparent_premium",
+        "style_notes": "Complete quote, higher total, volunteers every fee unprompted, professional and calm. Little base-rate flexibility; prefers waiving service fees over touching the rate.",
+        "price_sheet": {
+          "day_rate_cents": 13500,
+          "week_rate_5d_cents": 60000,
+          "delivery_cents": 9000,
+          "pickup_cents": 9000,
+          "liability_reduction_per_day_cents": 1400,
+          "liability_reduction_mandatory": true,
+          "cleaning_fee_conditional_cents": 8000,
+          "deposit_cents": 0,
+          "early_delivery_before_7_surcharge_cents": 4500,
+          "electric_12m_available": true,
+          "available_from": "immediate"
+        },
+        "floor": {
+          "min_total_net_cents_5d": 72000,
+          "notes": "Will not quote below this all-in net total for the demo job."
+        },
+        "concession_ladder": [
+          { "step": 1, "action": "waive_cleaning_fee", "requires": "any_reasonable_ask" },
+          { "step": 2, "action": "waive_pickup_fee", "requires": "competing_verified_quote" },
+          {
+            "step": 3,
+            "action": "rental_discount_pct",
+            "max_pct": 5,
+            "requires": "competing_verified_quote_and_commitment"
+          }
+        ],
+        "disclosure_policy": {
+          "volunteers_all_fees": true,
+          "reveals_deposit_unprompted": true,
+          "states_tax_basis": "net_plus_vat"
+        }
+      }
+    },
+    {
+      "key": "supplier_b",
+      "name": "BW Lift Mietservice",
+      "source": "simulated",
+      "is_simulated": true,
+      "location": "Ludwigsburg",
+      "distance_km": 17,
+      "supported_categories": ["scissor_lift", "telehandler"],
+      "operating_hours": "Mon-Sat 07:00-18:00",
+      "contact": { "kind": "simulated_dispatch" },
+      "policy": {
+        "behavior_profile": "low_headline",
+        "style_notes": "Friendly, quick to give a cheap day rate, never volunteers extra fees. Each additional fee is disclosed only when the specific category is asked about directly. Sounds like the cheapest option until the buyer works through the checklist.",
+        "price_sheet": {
+          "day_rate_cents": 7900,
+          "week_rate_5d_cents": 37500,
+          "delivery_cents": 16500,
+          "pickup_cents": 16500,
+          "liability_reduction_pct_of_rental": 15,
+          "liability_reduction_mandatory": true,
+          "cleaning_fee_conditional_cents": 12000,
+          "deposit_cents": 50000,
+          "early_delivery_before_7_surcharge_cents": 6000,
+          "fuel_or_charging_conditional_cents": 4500,
+          "electric_12m_available": true,
+          "available_from": "immediate"
+        },
+        "floor": {
+          "min_total_net_cents_5d": 78000,
+          "notes": "Headline moves little; fee waivers only under verified pressure."
+        },
+        "concession_ladder": [
+          {
+            "step": 1,
+            "action": "reduce_delivery_and_pickup_cents",
+            "amount_cents": 5000,
+            "requires": "competing_verified_quote"
+          },
+          {
+            "step": 2,
+            "action": "waive_early_delivery_surcharge",
+            "requires": "competing_verified_quote"
+          },
+          {
+            "step": 3,
+            "action": "reduce_deposit_cents",
+            "amount_cents": 20000,
+            "requires": "commitment_today"
+          }
+        ],
+        "disclosure_policy": {
+          "volunteers_all_fees": false,
+          "discloses_fee_only_when_category_asked": true,
+          "reveals_deposit_unprompted": false,
+          "states_tax_basis": "net_unless_asked"
+        }
+      }
+    },
+    {
+      "key": "supplier_c",
+      "name": "Neckar Bühnenverleih",
+      "source": "simulated",
+      "is_simulated": true,
+      "location": "Esslingen am Neckar",
+      "distance_km": 14,
+      "supported_categories": ["scissor_lift", "boom_lift", "mini_excavator"],
+      "operating_hours": "Mon-Fri 06:00-16:30",
+      "contact": { "kind": "simulated_dispatch" },
+      "policy": {
+        "behavior_profile": "hard_dispatcher",
+        "style_notes": "Busy dispatcher. Interrupts, demands full technical detail before any number, opens with a vague range or a refusal ('depends'). Relents into a concrete quote only after the caller proves technical competence (height, ground, access, window). Concedes ONLY against verified leverage, in small steps, never below floor. Hangs up on time-wasters.",
+        "price_sheet": {
+          "day_rate_cents": 11800,
+          "week_rate_5d_cents": 54000,
+          "delivery_cents": 11000,
+          "pickup_cents": 11000,
+          "liability_reduction_per_day_cents": 1200,
+          "liability_reduction_mandatory": true,
+          "cleaning_fee_conditional_cents": 0,
+          "deposit_cents": 30000,
+          "early_delivery_before_7_surcharge_cents": 0,
+          "electric_12m_available": true,
+          "available_from": "immediate"
+        },
+        "floor": {
+          "min_total_net_cents_5d": 76000,
+          "notes": "Never below floor, regardless of leverage."
+        },
+        "concession_ladder": [
+          {
+            "step": 1,
+            "action": "rental_discount_cents",
+            "amount_cents": 2500,
+            "requires": "competing_verified_quote"
+          },
+          {
+            "step": 2,
+            "action": "rental_discount_cents",
+            "amount_cents": 2500,
+            "requires": "competing_verified_quote_and_commitment"
+          }
+        ],
+        "disclosure_policy": {
+          "volunteers_all_fees": false,
+          "opens_with_range_or_refusal": true,
+          "requires_full_technical_detail_before_quote": true,
+          "reveals_deposit_unprompted": false,
+          "states_tax_basis": "net_unless_asked"
+        }
+      }
+    }
+  ]
+}

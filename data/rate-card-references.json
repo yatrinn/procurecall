@@ -1,0 +1,57 @@
+{
+  "description": "Public rate-card references for 12 m scissor lift rental in Germany. These are real, sourced market figures used ONLY as benchmarks and to ground simulated supplier policies. They prove the market spread exists; they prove nothing about this system.",
+  "category": "scissor_lift_12m",
+  "region": "Germany",
+  "currency": "EUR",
+  "tax_basis": "net",
+  "retrieved_at": "2026-07-18T21:35:00Z",
+  "references": [
+    {
+      "source": "GERKEN Arbeitsbühnen",
+      "url": "https://gerken-arbeitsbuehnen.de/produkt/scheren-arbeitsbuehne-12m-w/gs-120-12-w",
+      "item": "Scissor lift 11.95 m working height",
+      "daily_rate_net_eur": 119.0,
+      "notes": "Day rate excl. VAT; second 12 m model listed at 125.00 EUR/day"
+    },
+    {
+      "source": "BIBERGER",
+      "url": "https://biberger.de/products/sb-120-d",
+      "item": "SB 120-D diesel scissor lift, 11.75-11.96 m working height",
+      "daily_rate_net_eur": 93.0,
+      "notes": "Plus 10% machine breakage insurance on net rent, plus transport by distance, plus 18.60 EUR service and return fee per unit"
+    },
+    {
+      "source": "BIBERGER",
+      "url": "https://biberger.de/products/sb-120m-d",
+      "item": "SB 120m-D megadeck diesel scissor lift, ~12 m working height",
+      "daily_rate_net_eur": 105.0,
+      "notes": "Same fee structure as other BIBERGER units"
+    },
+    {
+      "source": "BIBERGER",
+      "url": "https://biberger.de/products/sb-120b-e",
+      "item": "SB 120b-E electric scissor lift, 11.75 m working height",
+      "daily_rate_net_eur": 93.0,
+      "notes": "Electric drive; plus 10% insurance, transport, 18.60 EUR return fee"
+    },
+    {
+      "source": "klickrent",
+      "url": "https://www.klickrent.de/mieten/produkt/12m-scherenbuehnen-diesel",
+      "item": "12 m diesel scissor lifts",
+      "daily_rate_net_eur": 88.0,
+      "notes": "Based on 5-day rental; plus transport, provisioning, deposit where applicable; cleaning billed at 94.00 EUR/hour if required; fuel at day prices; overtime at 1/8 day rate per extra hour beyond 8h/weekday"
+    }
+  ],
+  "derived_benchmark": {
+    "daily_rate_net_eur_values": [88.0, 93.0, 93.0, 105.0, 119.0, 125.0],
+    "daily_rate_net_eur_median": 99.0,
+    "typical_extras": [
+      "delivery and pickup charged separately, distance-based",
+      "machine breakage / liability reduction ~10-12% of net rent or per-day fee",
+      "conditional cleaning fee",
+      "conditional refueling / recharging fee",
+      "service or return fee per unit",
+      "refundable deposit for some suppliers"
+    ]
+  }
+}
