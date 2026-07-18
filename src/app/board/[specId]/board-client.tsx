@@ -3,25 +3,31 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { PrimaryButton } from '@/components/form';
+import { CallTape, type TapePin, type TapeTurn } from '@/components/call-tape';
 
 /**
- * Live negotiation board (functional version). Step 13 turns this into the
- * Call Tape visual; the data flow is already final: poll board state, pin
- * fees as they are logged, show structured outcomes.
+ * Live negotiation board: one Call Tape per supplier, fees pinning in real
+ * time, verified leverage drawn as a link between two tapes. Polls board
+ * state every 1.5 s while calls are running.
  */
-
-interface TranscriptTurn {
-  turn_index: number;
-  role: 'buyer' | 'supplier';
-  message: string;
-  at_ms: number;
-}
 
 interface ToolCallRecord {
   turn_index: number;
   tool: string;
   arguments: Record<string, unknown>;
-  result: Record<string, unknown>;
+  result: {
+    logged?: boolean;
+    ok?: boolean;
+    line?: {
+      label?: string;
+      category?: string;
+      amount_cents?: number;
+      unit?: string;
+      is_conditional?: boolean;
+    };
+    supplier_name?: string;
+    verified_total_cents?: number;
+  };
   at_ms: number;
 }
 
@@ -29,13 +35,19 @@ interface SessionDto {
   id: string;
   supplier_id: string;
   status: string;
+  tier: string;
+  transport_mode: string;
   outcome_type: string | null;
   outcome: { summary?: string; total_net_cents?: number | null } | null;
   failure_state: string | null;
-  transcript: TranscriptTurn[];
+  transcript: TapeTurn[];
   tool_calls: ToolCallRecord[];
+  friction_events: Array<{ turn_index: number; kind: string; note: string }>;
   disclosure_event: { turn_index: number } | null;
   spec_fingerprint: string;
+  recording_url: string | null;
+  started_at: string | null;
+  ended_at: string | null;
 }
 
 interface QuoteDto {
@@ -43,8 +55,29 @@ interface QuoteDto {
   call_id: string;
   supplier_id: string;
   status: string;
+  total_before_negotiation_cents: number | null;
   total_after_negotiation_cents: number | null;
   availability_status: string | null;
+  is_benchmark_outlier: boolean;
+  missing_information: string[];
+  price_breakdown: {
+    guaranteed_net_cents?: number;
+    conditional_cents?: number;
+    refundable_deposit_cents?: number;
+    tax_cents?: number;
+    cash_required_cents?: number;
+  } | null;
+}
+
+interface EventDto {
+  id: string;
+  call_id: string;
+  event_type: string;
+  concession_type: string | null;
+  verified_source_quote_id: string | null;
+  amount_before_cents: number | null;
+  amount_after_cents: number | null;
+  transcript_ref: { turn_index?: number } | null;
 }
 
 interface SupplierDto {
@@ -58,7 +91,7 @@ interface BoardState {
   sessions: SessionDto[];
   quotes: QuoteDto[];
   suppliers: SupplierDto[];
-  events: Array<{ call_id: string; event_type: string; concession_type: string | null }>;
+  events: EventDto[];
 }
 
 function eur(cents: number | null | undefined): string {
@@ -76,7 +109,33 @@ export function BoardClient({
   const [state, setState] = useState<BoardState | null>(null);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const pinElements = useRef(new Map<string, HTMLButtonElement>());
+  const [connectors, setConnectors] = useState<
+    Array<{ x1: number; y1: number; x2: number; y2: number; label: string }>
+  >([]);
+  // Evidence anchor: /board/{spec}#call={id}&turn={n} highlights the cited turn.
+  const [anchor, setAnchor] = useState<{ callId: string; turn: number } | null>(null);
+
+  useEffect(() => {
+    const readHash = () => {
+      const m = window.location.hash.match(/call=([0-9a-f-]+)&turn=(\d+)/);
+      setAnchor(m ? { callId: m[1], turn: Number(m[2]) } : null);
+    };
+    readHash();
+    window.addEventListener('hashchange', readHash);
+    return () => window.removeEventListener('hashchange', readHash);
+  }, []);
+
+  useEffect(() => {
+    if (!anchor || !state) return;
+    const el = document.getElementById(`tape-${anchor.callId}`);
+    el?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  }, [anchor, state]);
+
+  const anyRunning = (state?.sessions ?? []).some(
+    (s) => s.status === 'in_progress' || s.status === 'pending',
+  );
 
   const refresh = useCallback(async () => {
     const res = await fetch(`/api/specs/${specId}/board`, { cache: 'no-store' });
@@ -85,12 +144,49 @@ export function BoardClient({
 
   useEffect(() => {
     const kickoff = setTimeout(() => void refresh(), 0);
-    pollRef.current = setInterval(() => void refresh(), 1500);
+    const interval = setInterval(() => void refresh(), 1500);
     return () => {
       clearTimeout(kickoff);
-      if (pollRef.current) clearInterval(pollRef.current);
+      clearInterval(interval);
     };
   }, [refresh]);
+
+  const registerPinElement = useCallback((pinId: string, el: HTMLButtonElement | null) => {
+    if (el) pinElements.current.set(pinId, el);
+    else pinElements.current.delete(pinId);
+  }, []);
+
+  // Draw verified-leverage connectors between tapes.
+  const recomputeConnectors = useCallback(() => {
+    if (!containerRef.current || !state) return;
+    const containerBox = containerRef.current.getBoundingClientRect();
+    const quoteToCall = new Map(state.quotes.map((q) => [q.id, q.call_id]));
+    const next: Array<{ x1: number; y1: number; x2: number; y2: number; label: string }> = [];
+    for (const event of state.events) {
+      if (event.event_type !== 'leverage_used' || !event.verified_source_quote_id) continue;
+      const sourceCallId = quoteToCall.get(event.verified_source_quote_id);
+      if (!sourceCallId) continue;
+      const from = pinElements.current.get(`outcome-${sourceCallId}`);
+      const to = pinElements.current.get(`leverage-${event.id}`);
+      if (!from || !to) continue;
+      const a = from.getBoundingClientRect();
+      const b = to.getBoundingClientRect();
+      next.push({
+        x1: a.left + a.width / 2 - containerBox.left,
+        y1: a.top + a.height / 2 - containerBox.top,
+        x2: b.left + b.width / 2 - containerBox.left,
+        y2: b.top + b.height / 2 - containerBox.top,
+        label: 'verified leverage',
+      });
+    }
+    setConnectors(next);
+  }, [state]);
+
+  useEffect(() => {
+    recomputeConnectors();
+    window.addEventListener('resize', recomputeConnectors);
+    return () => window.removeEventListener('resize', recomputeConnectors);
+  }, [recomputeConnectors]);
 
   const startCalls = useCallback(async () => {
     setStarting(true);
@@ -109,7 +205,7 @@ export function BoardClient({
     const failures = results.filter((r) => r.status === 'rejected');
     if (failures.length > 0) {
       setError(
-        `${failures.length} of ${supplierIds.length} calls failed to complete. The board shows everything that was captured.`,
+        `${failures.length} of ${supplierIds.length} calls did not complete. Everything captured is on the board; failed calls carry an explicit failure state.`,
       );
     }
     setStarting(false);
@@ -117,10 +213,9 @@ export function BoardClient({
   }, [specId, supplierIds, refresh]);
 
   const hasSessions = (state?.sessions.length ?? 0) > 0;
-  const allDone =
-    hasSessions && (state?.sessions ?? []).every((s) => s.status === 'completed' || s.status === 'failed');
+  const allDone = hasSessions && !anyRunning;
 
-  const supplierName = useMemo(() => {
+  const supplierOf = useMemo(() => {
     const map = new Map<string, SupplierDto>();
     for (const s of state?.suppliers ?? []) map.set(s.id, s);
     return (id: string) => map.get(id);
@@ -131,11 +226,11 @@ export function BoardClient({
       <div className="flex items-center gap-4">
         {!hasSessions ? (
           <>
-            <PrimaryButton onClick={startCalls} disabled={starting}>
+            <PrimaryButton onClick={startCalls} disabled={starting || !state}>
               {starting ? 'Calling the market…' : `Call ${supplierIds.length} suppliers`}
             </PrimaryButton>
             <span className="text-sm text-steel">
-              Text-tier negotiation — same brain, same tools as the voice tier.
+              Text-tier negotiation — the same brain and tools as the voice tier.
             </span>
           </>
         ) : null}
@@ -147,116 +242,247 @@ export function BoardClient({
             Open decision room
           </Link>
         ) : null}
+        {anyRunning ? (
+          <span className="flex items-center gap-2 text-sm text-steel">
+            <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-hivis" aria-hidden />
+            Calls in progress — fees pin to the tapes as they are spoken.
+          </span>
+        ) : null}
       </div>
       {error ? <p className="mt-3 text-sm text-flag">{error}</p> : null}
 
-      <div className="mt-8 space-y-10">
-        {(state?.sessions ?? []).map((session) => {
-          const supplier = supplierName(session.supplier_id);
-          const quote = state?.quotes.find((q) => q.call_id === session.id);
-          const pins = session.tool_calls.filter((t) => t.tool === 'log_quote_line');
-          const lastTurn = session.transcript[session.transcript.length - 1];
-          return (
-            <section key={session.id} className="border-t border-line pt-4">
-              <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-                <h2 className="font-medium">{supplier?.name ?? 'Supplier'}</h2>
-                <span className="text-xs text-steel">
-                  {supplier?.is_simulated ? 'simulated supplier' : 'live'} ·{' '}
-                  {supplier?.location ?? ''}
-                </span>
-                <span className="figure ml-auto text-xs text-steel">
-                  fingerprint {session.spec_fingerprint.slice(0, 12)}
-                </span>
-                <StatusBadge session={session} />
-              </div>
+      <div ref={containerRef} className="relative mt-6">
+        {/* leverage connectors */}
+        <svg
+          className="pointer-events-none absolute inset-0 z-10 h-full w-full"
+          aria-hidden
+        >
+          {connectors.map((c, i) => {
+            const midY = (c.y1 + c.y2) / 2;
+            return (
+              <g key={i} stroke="var(--verified)" fill="none">
+                <path
+                  d={`M ${c.x1} ${c.y1} C ${c.x1} ${midY}, ${c.x2} ${midY}, ${c.x2} ${c.y2}`}
+                  strokeWidth="1.5"
+                  strokeDasharray="4 3"
+                />
+                <circle cx={c.x1} cy={c.y1} r="3" fill="var(--verified)" stroke="none" />
+                <circle cx={c.x2} cy={c.y2} r="3" fill="var(--verified)" stroke="none" />
+              </g>
+            );
+          })}
+        </svg>
 
-              {pins.length > 0 ? (
-                <ul className="mt-3 flex flex-wrap gap-2">
-                  {pins.map((pin, i) => {
-                    const line = (pin.result as { line?: { label?: string; amount_cents?: number; is_conditional?: boolean; unit?: string } }).line;
-                    if (!line) return null;
-                    return (
-                      <li
-                        key={i}
-                        className={`rounded-sm border px-2 py-1 text-xs ${
-                          line.is_conditional
-                            ? 'border-line text-steel'
-                            : 'border-steel text-ink'
-                        }`}
-                      >
-                        <span>{line.label}</span>{' '}
-                        <span className="figure">
-                          {line.unit === 'percent_of_rental'
-                            ? `${((line.amount_cents ?? 0) / 100).toFixed(1)}%`
-                            : eur(line.amount_cents)}
-                          {line.unit === 'per_day' ? '/day' : ''}
-                        </span>
-                        {line.is_conditional ? ' if triggered' : ''}
-                      </li>
-                    );
-                  })}
-                </ul>
-              ) : null}
-
-              {session.status === 'in_progress' && lastTurn ? (
-                <p className="mt-3 text-sm text-steel">
-                  <span className="text-ink">{lastTurn.role === 'buyer' ? 'Agent' : 'Dispatcher'}:</span>{' '}
-                  {lastTurn.message.length > 220 ? `${lastTurn.message.slice(0, 220)}…` : lastTurn.message}
-                </p>
-              ) : null}
-
-              {session.outcome ? (
-                <div className="mt-3 text-sm">
-                  <span className="text-steel">Outcome: </span>
-                  {session.outcome_type === 'quote' && quote ? (
-                    <>
-                      <span className="figure">{eur(quote.total_after_negotiation_cents)}</span>
-                      <span className="text-steel"> net · </span>
-                      <span className={quote.status === 'confirmed' ? 'text-verified' : 'text-steel'}>
-                        {quote.status === 'confirmed' ? 'confirmed by supplier' : quote.status}
-                      </span>
-                    </>
-                  ) : (
-                    <span>{session.outcome_type?.replaceAll('_', ' ')}</span>
-                  )}
-                  <p className="mt-1 max-w-2xl text-steel">{session.outcome.summary}</p>
-                </div>
-              ) : null}
-
-              <details className="mt-3">
-                <summary className="cursor-pointer text-xs text-steel hover:text-ink">
-                  Full transcript ({session.transcript.length} turns
-                  {session.disclosure_event ? ', AI disclosed' : ''})
-                </summary>
-                <ol className="mt-2 max-h-80 space-y-2 overflow-y-auto border-l-2 border-line pl-4 text-sm">
-                  {session.transcript.map((t) => (
-                    <li key={t.turn_index}>
-                      <span className="figure text-xs text-steel">
-                        {String(Math.floor(t.at_ms / 60000)).padStart(2, '0')}:
-                        {String(Math.floor((t.at_ms % 60000) / 1000)).padStart(2, '0')}
-                      </span>{' '}
-                      <span className="text-steel">{t.role === 'buyer' ? 'Agent' : 'Dispatcher'}:</span>{' '}
-                      {t.message}
-                    </li>
-                  ))}
-                </ol>
-              </details>
-            </section>
-          );
-        })}
+        <div className="space-y-12">
+          {(state?.sessions ?? []).map((session) => (
+            <TapeSection
+              key={session.id}
+              session={session}
+              supplier={supplierOf(session.supplier_id)}
+              quote={state?.quotes.find((q) => q.call_id === session.id)}
+              events={(state?.events ?? []).filter((e) => e.call_id === session.id)}
+              registerPinElement={registerPinElement}
+              onLayout={recomputeConnectors}
+              highlightTurn={anchor?.callId === session.id ? anchor.turn : null}
+            />
+          ))}
+        </div>
       </div>
 
       {!hasSessions && state ? (
         <p className="mt-8 text-sm text-steel">
-          No calls yet. Start the calls to see fees pin to each conversation as they are spoken.
+          No calls yet. Start the calls to watch three negotiations run on one identical brief.
         </p>
       ) : null}
     </div>
   );
 }
 
+function TapeSection({
+  session,
+  supplier,
+  quote,
+  events,
+  registerPinElement,
+  onLayout,
+  highlightTurn,
+}: {
+  session: SessionDto;
+  supplier: SupplierDto | undefined;
+  quote: QuoteDto | undefined;
+  events: EventDto[];
+  registerPinElement: (pinId: string, el: HTMLButtonElement | null) => void;
+  onLayout: () => void;
+  highlightTurn?: number | null;
+}) {
+  useEffect(() => {
+    onLayout();
+  }, [session.status, session.transcript.length, onLayout]);
+
+  const turnAt = useCallback(
+    (turnIndex: number) => session.transcript.find((t) => t.turn_index === turnIndex),
+    [session.transcript],
+  );
+
+  const pins = useMemo(() => {
+    const result: TapePin[] = [];
+    for (const tc of session.tool_calls) {
+      if (tc.tool === 'log_quote_line' && tc.result.logged && tc.result.line) {
+        const line = tc.result.line;
+        result.push({
+          id: `line-${session.id}-${tc.at_ms}-${line.label}`,
+          at_ms: tc.at_ms,
+          turn_index: tc.turn_index,
+          kind: line.is_conditional ? 'conditional_fee' : 'fee',
+          label: line.label ?? 'fee',
+          amount_label:
+            line.unit === 'percent_of_rental'
+              ? `${((line.amount_cents ?? 0) / 100).toFixed(1)}%`
+              : `${(((line.amount_cents ?? 0) as number) / 100).toFixed(0)}€${line.unit === 'per_day' ? '/d' : ''}`,
+          audio_start_s: turnAt(tc.turn_index)?.audio_start_s ?? null,
+        });
+      }
+    }
+    for (const ev of events) {
+      const turnIndex = ev.transcript_ref?.turn_index ?? 0;
+      if (ev.event_type === 'leverage_used') {
+        result.push({
+          id: `leverage-${ev.id}`,
+          at_ms: turnAt(turnIndex)?.at_ms ?? 0,
+          turn_index: turnIndex,
+          kind: 'leverage',
+          label: 'verified leverage',
+        });
+      } else if (['concession', 'fee_waived', 'fee_reduced', 'rate_reduced'].includes(ev.event_type)) {
+        const delta =
+          ev.amount_before_cents !== null && ev.amount_after_cents !== null
+            ? `−${((ev.amount_before_cents - ev.amount_after_cents) / 100).toFixed(0)}€`
+            : '';
+        result.push({
+          id: `concession-${ev.id}`,
+          at_ms: turnAt(turnIndex)?.at_ms ?? 0,
+          turn_index: turnIndex,
+          kind: 'concession',
+          label: ev.concession_type ?? ev.event_type,
+          amount_label: delta,
+        });
+      }
+    }
+    if (session.disclosure_event) {
+      const t = turnAt(session.disclosure_event.turn_index);
+      result.push({
+        id: `disclosure-${session.id}`,
+        at_ms: t?.at_ms ?? 0,
+        turn_index: session.disclosure_event.turn_index,
+        kind: 'disclosure',
+        label: 'AI disclosed',
+      });
+    }
+    for (const f of session.friction_events ?? []) {
+      const t = turnAt(f.turn_index);
+      result.push({
+        id: `friction-${session.id}-${f.turn_index}-${f.kind}`,
+        at_ms: t?.at_ms ?? 0,
+        turn_index: f.turn_index,
+        kind: 'friction',
+        label: f.kind.replaceAll('_', ' '),
+      });
+    }
+    if (session.outcome_type) {
+      const lastTurn = session.transcript[session.transcript.length - 1];
+      result.push({
+        id: `outcome-${session.id}`,
+        at_ms: lastTurn?.at_ms ?? 0,
+        turn_index: lastTurn?.turn_index ?? 0,
+        kind: 'outcome',
+        label: session.outcome_type.replaceAll('_', ' '),
+      });
+    }
+    return result;
+  }, [session, events, turnAt]);
+
+  const durationMs = useMemo(() => {
+    const lastTurn = session.transcript[session.transcript.length - 1];
+    return Math.max(lastTurn?.at_ms ?? 0, 1) + 8000;
+  }, [session.transcript]);
+
+  return (
+    <section className="border-t border-line pt-4" id={`tape-${session.id}`}>
+      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+        <h2 className="font-medium">{supplier?.name ?? 'Supplier'}</h2>
+        <span className="text-xs text-steel">
+          {supplier?.is_simulated ? 'simulated supplier' : 'live'} · {supplier?.location ?? ''} ·{' '}
+          {session.tier} tier
+        </span>
+        <span className="figure ml-auto text-xs text-steel">
+          {session.spec_fingerprint.slice(0, 12)}
+        </span>
+        <StatusBadge session={session} />
+      </div>
+
+      <CallTape
+        callId={session.id}
+        turns={session.transcript}
+        pins={pins}
+        durationMs={durationMs}
+        audioUrl={session.recording_url}
+        registerPinElement={registerPinElement}
+        highlightTurn={highlightTurn}
+      />
+
+      {quote ? (
+        <div className="mt-3 flex flex-wrap items-baseline gap-x-6 gap-y-1 text-sm">
+          <span>
+            <span className="text-steel">Guaranteed net </span>
+            <span className="figure">{eur(quote.total_after_negotiation_cents)}</span>
+            {quote.total_before_negotiation_cents !== null &&
+            quote.total_after_negotiation_cents !== null &&
+            quote.total_before_negotiation_cents !== quote.total_after_negotiation_cents ? (
+              <span className="figure text-verified">
+                {' '}
+                (was {eur(quote.total_before_negotiation_cents)})
+              </span>
+            ) : null}
+          </span>
+          {quote.price_breakdown?.conditional_cents ? (
+            <span>
+              <span className="text-steel">Conditional up to </span>
+              <span className="figure">{eur(quote.price_breakdown.conditional_cents)}</span>
+            </span>
+          ) : null}
+          {quote.price_breakdown?.refundable_deposit_cents ? (
+            <span>
+              <span className="text-steel">Deposit (refundable) </span>
+              <span className="figure">{eur(quote.price_breakdown.refundable_deposit_cents)}</span>
+            </span>
+          ) : null}
+          <span className={quote.status === 'confirmed' ? 'text-verified' : 'text-steel'}>
+            {quote.status === 'confirmed' ? 'confirmed by supplier' : quote.status}
+          </span>
+          {quote.is_benchmark_outlier ? (
+            <span className="text-flag">far below market benchmark — flagged for review</span>
+          ) : null}
+          {quote.missing_information.length > 0 ? (
+            <span className="text-flag">
+              unpriced: {quote.missing_information.join(', ')} — an incomplete quote is not a
+              cheap quote
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+
+      {session.outcome && session.outcome_type !== 'quote' ? (
+        <p className="mt-3 max-w-2xl text-sm text-steel">
+          <span className="text-ink">{session.outcome_type?.replaceAll('_', ' ')}: </span>
+          {session.outcome.summary}
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
 function StatusBadge({ session }: { session: SessionDto }) {
-  if (session.status === 'in_progress') {
+  if (session.status === 'in_progress' || session.status === 'pending') {
     return (
       <span className="flex items-center gap-1.5 text-xs text-ink">
         <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-hivis" aria-hidden />
@@ -265,10 +491,11 @@ function StatusBadge({ session }: { session: SessionDto }) {
     );
   }
   if (session.status === 'failed') {
-    return <span className="text-xs text-flag">failed{session.failure_state ? ` — ${session.failure_state}` : ''}</span>;
-  }
-  if (session.status === 'completed') {
-    return <span className="text-xs text-steel">completed</span>;
+    return (
+      <span className="text-xs text-flag">
+        failed{session.failure_state ? ` — ${session.failure_state}` : ''}
+      </span>
+    );
   }
   return <span className="text-xs text-steel">{session.status}</span>;
 }
