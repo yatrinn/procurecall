@@ -46,11 +46,13 @@ const SupplierTurnSchema = z.object({
     concession_step_used: z.number().int().nullable(),
     concession_reason: z.string().nullable(),
     newly_disclosed_categories: z.array(z.string()),
-    quoted_or_committed_total_net_cents: z
+    all_in_total_for_full_job_net_cents: z
       .number()
       .int()
       .nullable()
-      .describe('Only when a concrete all-in net total for the full job was stated'),
+      .describe(
+        'ONLY when you stated a single all-in net total covering the ENTIRE job (all mandatory items, full duration). Day rates, single fees, and subtotals are NOT reported here — leave null.',
+      ),
     wants_to_hang_up: z.boolean(),
   }),
 });
@@ -142,8 +144,8 @@ export async function generateSupplierTurn(input: {
   const violations: string[] = [];
   if (
     typeof floorCents === 'number' &&
-    turn.internal.quoted_or_committed_total_net_cents !== null &&
-    turn.internal.quoted_or_committed_total_net_cents < floorCents
+    turn.internal.all_in_total_for_full_job_net_cents !== null &&
+    turn.internal.all_in_total_for_full_job_net_cents < floorCents
   ) {
     violations.push(
       `You quoted a total below your floor. Re-answer without going below your minimum position; you may decline instead.`,
@@ -172,8 +174,8 @@ export async function generateSupplierTurn(input: {
     // Final clamp: if the regenerated turn still violates the floor, refuse the number.
     if (
       typeof floorCents === 'number' &&
-      turn.internal.quoted_or_committed_total_net_cents !== null &&
-      turn.internal.quoted_or_committed_total_net_cents < floorCents
+      turn.internal.all_in_total_for_full_job_net_cents !== null &&
+      turn.internal.all_in_total_for_full_job_net_cents < floorCents
     ) {
       turn = {
         message:
@@ -182,7 +184,7 @@ export async function generateSupplierTurn(input: {
           concession_step_used: null,
           concession_reason: null,
           newly_disclosed_categories: [],
-          quoted_or_committed_total_net_cents: null,
+          all_in_total_for_full_job_net_cents: null,
           wants_to_hang_up: false,
         },
       };
@@ -201,7 +203,7 @@ export function applySupplierTurn(state: SupplierState, turn: SupplierTurn): Sup
       new Set([...state.disclosed_categories, ...turn.internal.newly_disclosed_categories]),
     ),
     committed_total_net_cents:
-      turn.internal.quoted_or_committed_total_net_cents ?? state.committed_total_net_cents,
+      turn.internal.all_in_total_for_full_job_net_cents ?? state.committed_total_net_cents,
     hangup: turn.internal.wants_to_hang_up,
   };
 }
