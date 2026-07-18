@@ -77,6 +77,39 @@ function humanizeMoney(obj: Record<string, unknown>): Record<string, unknown> {
   return out;
 }
 
+/**
+ * Precomputed arithmetic from the price sheet so the simulated dispatcher is
+ * numerate. This does NOT script the negotiation — concessions remain gated
+ * by the ladder; it only keeps the dispatcher's own sums correct.
+ */
+function arithmeticHelp(priceSheet: Record<string, unknown>): string {
+  const n = (key: string): number | null =>
+    typeof priceSheet[key] === 'number' ? (priceSheet[key] as number) : null;
+  const week = n('week_rate_5d_cents');
+  const day = n('day_rate_cents');
+  const delivery = n('delivery_cents') ?? 0;
+  const pickup = n('pickup_cents') ?? 0;
+  const liabilityPerDay = n('liability_reduction_per_day_cents');
+  const liabilityPct = n('liability_reduction_pct_of_rental');
+  const early = n('early_delivery_before_7_surcharge_cents') ?? 0;
+  const lines: string[] = [];
+  for (const days of [1, 3, 5]) {
+    const rental = days === 5 && week !== null ? week : day !== null ? day * days : null;
+    if (rental === null) continue;
+    const liability =
+      liabilityPerDay !== null
+        ? liabilityPerDay * days
+        : liabilityPct !== null
+          ? Math.round((rental * liabilityPct) / 100)
+          : 0;
+    const base = rental + delivery + pickup + liability;
+    lines.push(
+      `${days} business day(s): rental ${(rental / 100).toFixed(2)} + delivery ${(delivery / 100).toFixed(2)} + pickup ${(pickup / 100).toFixed(2)} + mandatory liability ${(liability / 100).toFixed(2)} = ${(base / 100).toFixed(2)} EUR net; add early-delivery surcharge ${(early / 100).toFixed(2)} only if delivery before 07:00 is requested (then ${((base + early) / 100).toFixed(2)} EUR net).`,
+    );
+  }
+  return lines.join('\n');
+}
+
 function systemPrompt(
   supplierName: string,
   policy: SupplierPolicyRow,
@@ -97,6 +130,9 @@ ${styleNotes}
 
 YOUR PRIVATE PRICE SHEET (never read it out as a list; quote from it naturally):
 ${JSON.stringify(priceSheet, null, 2)}
+
+YOUR OWN ARITHMETIC (use these exact sums when quoting; do not improvise math):
+${arithmeticHelp(policy.price_sheet)}
 
 YOUR PRIVATE FLOOR (never reveal it, never go below it under any circumstances):
 ${JSON.stringify(humanizeMoney(policy.floor), null, 2)}
