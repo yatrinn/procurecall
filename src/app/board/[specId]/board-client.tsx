@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { PrimaryButton } from '@/components/form';
 import { CallTape, type TapeTurn } from '@/components/call-tape';
 import { derivePins, type PinSourceEvent, type PinSourceSession } from '@/components/derive-pins';
+import { VoiceCallPanel } from './voice-call-panel';
 
 /**
  * Live negotiation board: one Call Tape per supplier, fees pinning in real
@@ -251,6 +252,14 @@ export function BoardClient({
         ) : null}
       </div>
       {error ? <p className="mt-3 text-sm text-flag">{error}</p> : null}
+
+      <VoiceCallPanel
+        specId={specId}
+        suppliers={(state?.suppliers ?? [])
+          .filter((s) => supplierIds.includes(s.id))
+          .map((s) => ({ id: s.id, name: s.name }))}
+        onCompleted={refresh}
+      />
 
       <div ref={containerRef} className="relative mt-6">
         {/* leverage connectors */}

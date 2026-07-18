@@ -310,7 +310,7 @@ export async function runTextCall(callId: string): Promise<void> {
   }
 }
 
-async function persistQuote(input: {
+export async function persistQuote(input: {
   callId: string;
   spec: SpecRow;
   supplierId: string;

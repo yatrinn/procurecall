@@ -34,8 +34,20 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     ]);
 
   const sessionIds = new Set((sessions ?? []).map((s) => s.id));
+
+  // recording_url stores a private storage path; hand the client signed URLs.
+  const withAudio = await Promise.all(
+    (sessions ?? []).map(async (s) => {
+      if (!s.recording_url || s.recording_url.startsWith('http')) return s;
+      const { data } = await supabase.storage
+        .from('call-audio')
+        .createSignedUrl(s.recording_url, 3600);
+      return { ...s, recording_url: data?.signedUrl ?? null };
+    }),
+  );
+
   return NextResponse.json({
-    sessions: sessions ?? [],
+    sessions: withAudio,
     quotes: quotes ?? [],
     events: (events ?? []).filter((e) => sessionIds.has(e.call_id)),
     suppliers: suppliers ?? [],
