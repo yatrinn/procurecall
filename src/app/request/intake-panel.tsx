@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useConversation } from '@elevenlabs/react';
+import { ConversationProvider, useConversation } from '@elevenlabs/react';
 import { PrimaryButton, QuietButton } from '@/components/form';
 
 type Path = 'voice' | 'document' | 'text';
@@ -69,7 +69,9 @@ export function IntakePanel() {
 
       <div className="mt-6 max-w-xl">
         {path === 'voice' ? (
-          <VoiceIntake onTranscript={submitTranscript} busy={busy} />
+          <ConversationProvider>
+            <VoiceIntake onTranscript={submitTranscript} busy={busy} />
+          </ConversationProvider>
         ) : null}
         {path === 'document' ? <DocumentIntake /> : null}
         {path === 'text' ? <TextIntake /> : null}

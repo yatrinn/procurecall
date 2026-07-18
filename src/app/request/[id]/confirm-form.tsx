@@ -255,10 +255,18 @@ export function ConfirmForm({
           </dl>
         </div>
         {spec.confirmed_by_user ? (
-          <p className="mt-3 text-xs text-steel">
-            This request is frozen. Every call cites this exact fingerprint; any edit creates a
-            new version with a new fingerprint.
-          </p>
+          <>
+            <a
+              href={`/board/${spec.id}`}
+              className="mt-4 block rounded-sm bg-ink px-4 py-2 text-center text-sm font-medium text-paper hover:bg-black"
+            >
+              Go to the negotiation board
+            </a>
+            <p className="mt-3 text-xs text-steel">
+              This request is frozen. Every call cites this exact fingerprint; any edit creates a
+              new version with a new fingerprint.
+            </p>
+          </>
         ) : (
           <p className="mt-3 text-xs text-steel">
             No supplier is called before you confirm.

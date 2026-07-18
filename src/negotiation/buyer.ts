@@ -6,7 +6,7 @@ import { specBriefLines } from '@/core/jobspec';
 import { shortFingerprint } from '@/core/canonical';
 import type { ToolDef } from './buyer-tools';
 import { toOpenAiTools, executeTool } from './buyer-tools';
-import type { ToolCallRecord, TranscriptTurn } from './types';
+import type { ToolCallRecord } from './types';
 
 /**
  * The buyer agent's brain. One policy for every transport (text tier and
