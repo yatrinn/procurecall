@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 620" font-family="Menlo, Consolas, monospace" font-size="12">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#5A6570"/>
+    </marker>
+    <marker id="arrv" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#0E5F55"/>
+    </marker>
+  </defs>
+  <rect width="980" height="620" fill="#EDEFEA"/>
+  <text x="30" y="36" font-size="20" font-weight="bold" fill="#14181A">ProcureCall  architecture</text>
+  <text x="30" y="56" fill="#5A6570">one negotiation brain · two transports · numbers only via verified tools</text>
+
+  <!-- Browser -->
+  <rect x="30" y="86" width="200" height="150" fill="#F7F8F5" stroke="#5A6570" rx="4"/>
+  <text x="45" y="108" font-weight="bold" fill="#14181A">Browser</text>
+  <text x="45" y="128" fill="#5A6570">intake · confirm</text>
+  <text x="45" y="144" fill="#5A6570">live board (tapes)</text>
+  <text x="45" y="160" fill="#5A6570">decision room</text>
+  <text x="45" y="176" fill="#5A6570">/demo replay</text>
+  <text x="45" y="196" fill="#5A6570">mic: voice intake +</text>
+  <text x="45" y="212" fill="#5A6570">roleplay dispatcher</text>
+
+  <!-- Next.js server -->
+  <rect x="290" y="86" width="330" height="290" fill="#F7F8F5" stroke="#14181A" rx="4"/>
+  <text x="305" y="108" font-weight="bold" fill="#14181A">Next.js on Vercel (all secrets server-side)</text>
+
+  <rect x="305" y="122" width="300" height="66" fill="#EDEFEA" stroke="#0E5F55" rx="4"/>
+  <text x="318" y="140" font-weight="bold" fill="#0E5F55">Truth layer + lever gate</text>
+  <text x="318" y="156" fill="#5A6570">getVerifiedLeverage(): 6 checks or typed error</text>
+  <text x="318" y="172" fill="#5A6570">unauthorized lever Ò tool absent from session</text>
+
+  <rect x="305" y="196" width="145" height="76" fill="#EDEFEA" stroke="#5A6570" rx="4"/>
+  <text x="318" y="214" font-weight="bold" fill="#14181A">Buyer brain</text>
+  <text x="318" y="230" fill="#5A6570">pinned GPT-5.5</text>
+  <text x="318" y="246" fill="#5A6570">tools: log_quote_line,</text>
+  <text x="318" y="262" fill="#5A6570">outcome, friction&</text>
+
+  <rect x="460" y="196" width="145" height="76" fill="#EDEFEA" stroke="#5A6570" rx="4"/>
+  <text x="473" y="214" font-weight="bold" fill="#14181A">Supplier engine</text>
+  <text x="473" y="230" fill="#5A6570">private policy:</text>
+  <text x="473" y="246" fill="#5A6570">price sheet · floor ·</text>
+  <text x="473" y="262" fill="#5A6570">ladder (code-enforced)</text>
+
+  <rect x="305" y="284" width="300" height="80" fill="#EDEFEA" stroke="#5A6570" rx="4"/>
+  <text x="318" y="302" font-weight="bold" fill="#14181A">Deterministic layer</text>
+  <text x="318" y="318" fill="#5A6570">price engine: guaranteed | conditional | deposit | tax</text>
+  <text x="318" y="334" fill="#5A6570">ranking rank-1.0 with reason codes · fingerprint sha256</text>
+  <text x="318" y="350" fill="#5A6570">post-call validator: claims vs tool calls</text>
+
+  <!-- Supabase -->
+  <rect x="680" y="86" width="270" height="130" fill="#F7F8F5" stroke="#5A6570" rx="4"/>
+  <text x="695" y="108" font-weight="bold" fill="#14181A">Supabase (RLS deny-all)</text>
+  <text x="695" y="128" fill="#5A6570">job_specs (versioned, fingerprint)</text>
+  <text x="695" y="144" fill="#5A6570">call_sessions · quotes · quote_lines*</text>
+  <text x="695" y="160" fill="#5A6570">negotiation_events · validator_findings</text>
+  <text x="695" y="176" fill="#5A6570">storage: call audio (signed URLs)</text>
+  <text x="695" y="196" fill="#0E5F55">*a line without a transcript ref cannot persist</text>
+
+  <!-- ElevenLabs -->
+  <rect x="680" y="246" width="270" height="130" fill="#F7F8F5" stroke="#5A6570" rx="4"/>
+  <text x="695" y="268" font-weight="bold" fill="#14181A">ElevenLabs Agents</text>
+  <text x="695" y="288" fill="#5A6570">intake agent (interview, dyn. variables)</text>
+  <text x="695" y="304" fill="#5A6570">buyer voice agent ’ custom LLM =</text>
+  <text x="695" y="320" fill="#5A6570">/api/llm/v1 (same brain, same tools)</text>
+  <text x="695" y="336" fill="#5A6570">caps: 240 s max · silence hangup</text>
+  <text x="695" y="356" fill="#5A6570">post-call: transcript + recording pulled</text>
+
+  <!-- OpenAI + Tavily -->
+  <rect x="290" y="404" width="330" height="60" fill="#F7F8F5" stroke="#5A6570" rx="4"/>
+  <text x="305" y="426" font-weight="bold" fill="#14181A">OpenAI (pinned snapshots, strict outputs)</text>
+  <text x="305" y="444" fill="#5A6570">gpt-5.5-2026-04-23 · gpt-5.4-mini-2026-03-17</text>
+
+  <!-- flows -->
+  <line x1="230" y1="130" x2="290" y2="130" stroke="#5A6570" marker-end="url(#arr)"/>
+  <text x="236" y="122" fill="#5A6570" font-size="10">HTTPS</text>
+  <line x1="230" y1="200" x2="680" y2="300" stroke="#5A6570" marker-end="url(#arr)"/>
+  <text x="300" y="386" fill="#5A6570" font-size="10" transform="rotate(12 300 380)"></text>
+  <line x1="620" y1="150" x2="680" y2="150" stroke="#5A6570" marker-end="url(#arr)"/>
+  <text x="626" y="142" fill="#5A6570" font-size="10">service key</text>
+  <line x1="680" y1="310" x2="620" y2="310" stroke="#0E5F55" marker-end="url(#arrv)"/>
+  <text x="626" y="302" fill="#0E5F55" font-size="10">voice = same brain</text>
+  <line x1="455" y1="376" x2="455" y2="404" stroke="#5A6570" marker-end="url(#arr)"/>
+  <line x1="450" y1="234" x2="460" y2="234" stroke="#5A6570" marker-end="url(#arr)"/>
+  <line x1="378" y1="196" x2="378" y2="188" stroke="#0E5F55" marker-end="url(#arrv)"/>
+  <text x="30" y="596" fill="#5A6570">The buyer's only path to a competing figure is the verified tool. Deposits are cash, not cost. The model explains; it never chooses.</text>
+</svg>
