@@ -64,15 +64,42 @@
   in earlier runs; both corrected in-call).
 - Every call ended in a structured outcome; every quote line carries a transcript ref.
 
+## Gate 3 — demo resilience: DONE
+
+- `/demo` is public, no login: verified replay of the recorded golden run (time-true
+  re-render, labeled, nothing synthesized at view time), live-run capability with
+  per-IP + global rate limits, reset that removes visitor data and never touches the
+  golden run, robust error states. Global hourly call cap protects credits.
+- Call Tape shipped: fees/disclosure/friction/leverage/concession/outcome pins on a
+  time spine, transcript highlight on click, audio seek when a recording exists, and
+  verified-leverage connectors drawn between tapes in --verified.
+- Decision room shipped: deterministic ranking (engine rank-1.0, unit-tested) with
+  reason codes, evidence rail from the recommended total down to tape moments,
+  model-written explanation FROM the computed codes (never chooses).
+- Price engine wired: engine totals are authoritative (caught real model arithmetic
+  slips), red-flag benchmark rule active, deposits separated, unknown categories
+  surfaced verbatim as "an incomplete quote is not a cheap quote".
+- Post-call validator live on every call: model proposes claims, code decides
+  support; leverage citation on the golden run verified as INFO/supported.
+
+## Voice status
+
+- Intake agent verified live over WebSocket (signed URL, dynamic variables, first
+  message + TTS audio) — cost ~2 s of the 250-minute budget.
+- Voice negotiation path deployed: ElevenLabs buyer agent runs on our custom-LLM
+  endpoint (identical brain/tools/truth layer as text tier), human-roleplay sessions
+  from the board, hard caps (240 s max, 20 s silence hangup), recording capture to
+  private storage with signed playback URLs, voice usage booked per session.
+  Production smoke of the endpoint: SSE stream OK. Full roleplay call reserved for
+  the golden voice run + final demo (budget discipline).
+
 ## What does not work yet
 
-- Price engine exists (`src/core/price-engine.ts`) but is not yet wired into quotes
-  (no breakdown persisted, no red-flag display). Ranking is a plain sort, clearly
-  labeled as not a recommendation.
-- No voice-tier negotiation call yet; no recordings; no evidence-audio scrubbing.
-- Post-call validator, evidence ledger UI, verified replay, public /demo, adversarial
-  suite, eval lab, moving vertical: not built yet.
-- Voice usage: 0 minutes consumed so far.
+- Submission package (/submission), README final form: not written yet.
+- Adversarial suite + text-tier eval lab: not built yet.
+- Second vertical (moving-us): not built yet.
+- Playwright e2e + CI: not set up yet.
+- Voice usage so far: ~2 seconds of 250 minutes.
 
 ## Deployment
 

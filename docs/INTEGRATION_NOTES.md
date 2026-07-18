@@ -90,6 +90,20 @@ Base: `https://api.elevenlabs.io`, auth header `xi-api-key: <key>`. Docs pages: 
   Not needed: our text tier runs our own buyer-policy loop against our supplier engine
   directly via OpenAI — zero ElevenLabs minutes.
 
+### Voice verification log
+
+- 2026-07-19 ~01:40: intake agent smoke test over raw WebSocket — signed URL ok,
+  `conversation_initiation_client_data` with `dynamic_variables` accepted, agent
+  produced first message text + TTS audio. Cost ~2 s (booked in voice_usage,
+  kind=verification). Conversation `conv_8101kxvsb62wem0rnhckzkftspnr`.
+- 2026-07-19 ~01:45: buyer voice agent created with `llm: 'custom-llm'` (SDK enum;
+  REST shows CUSTOM_LLM elsewhere — the SDK value is lowercase-hyphen), custom LLM
+  `url: <prod>/api/llm/v1`, `api_key: { secretId }` (workspace secret via
+  `POST /v1/convai/secrets` — requires `type: 'new'` in the body),
+  `request_headers: { 'x-call-id': { variable_name: 'call_id' } }` (dynamic variable
+  per session). Production smoke: authorized SSE chat-completions stream with buyer
+  disclosure line. 0 voice seconds consumed (no agent session started).
+
 ### Voice architecture decisions (budget: 250 agent minutes total)
 
 - One negotiation brain, two transports. The buyer policy is OUR server code (OpenAI
