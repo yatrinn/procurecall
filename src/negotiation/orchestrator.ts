@@ -282,6 +282,15 @@ export async function runTextCall(callId: string): Promise<void> {
     });
 
     await persist('completed');
+
+    // Post-call validator runs after completion; a validator failure must
+    // never corrupt the call result itself.
+    try {
+      const { runPostCallValidator } = await import('@/core/validator');
+      await runPostCallValidator(callId);
+    } catch (e) {
+      console.error('post-call validator failed:', e);
+    }
   } catch (e) {
     failureState = e instanceof Error ? e.message : 'unknown_error';
     if (!outcome) {
