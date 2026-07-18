@@ -1,0 +1,8 @@
+.env
+.env.*
+!.env.example
+node_modules/
+.next/
+.vercel/
+.DS_Store
+Information_for_the_agent_to_read_later_to_be_deleated_not_to_upload_to_github/
