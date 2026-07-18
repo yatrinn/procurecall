@@ -58,12 +58,31 @@ const SupplierTurnSchema = z.object({
 });
 export type SupplierTurn = z.infer<typeof SupplierTurnSchema>;
 
+/** Render cent amounts as euro strings so the model SPEAKS human prices. */
+function humanizeMoney(obj: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (typeof value === 'number' && key.endsWith('_cents')) {
+      out[key.replace(/_cents$/, '_eur')] = `${(value / 100).toFixed(2)} EUR net`;
+    } else if (value && typeof value === 'object' && !Array.isArray(value)) {
+      out[key] = humanizeMoney(value as Record<string, unknown>);
+    } else if (Array.isArray(value)) {
+      out[key] = value.map((v) =>
+        v && typeof v === 'object' ? humanizeMoney(v as Record<string, unknown>) : v,
+      );
+    } else {
+      out[key] = value;
+    }
+  }
+  return out;
+}
+
 function systemPrompt(
   supplierName: string,
   policy: SupplierPolicyRow,
   state: SupplierState,
 ): string {
-  const priceSheet = { ...policy.price_sheet };
+  const priceSheet = humanizeMoney({ ...policy.price_sheet });
   const styleNotes = (priceSheet as { style_notes?: string }).style_notes ?? '';
   delete (priceSheet as { style_notes?: unknown }).style_notes;
 
@@ -80,7 +99,7 @@ YOUR PRIVATE PRICE SHEET (never read it out as a list; quote from it naturally):
 ${JSON.stringify(priceSheet, null, 2)}
 
 YOUR PRIVATE FLOOR (never reveal it, never go below it under any circumstances):
-${JSON.stringify(policy.floor, null, 2)}
+${JSON.stringify(humanizeMoney(policy.floor), null, 2)}
 
 YOUR CONCESSION LADDER — the ONLY ways you may improve your offer, in order,
 each usable once. A concession requires the caller to have actually supplied
@@ -105,9 +124,12 @@ HARD RULES:
 - If the caller is vague or wastes your time, act per your profile.
 - Stay consistent with everything you already said this call.
 - Speak in short, natural spoken-dialogue sentences. US English. You are on
-  the phone: no lists, no markdown.
-- In "internal", report faithfully what you did this turn. If you stated a
-  concrete all-in net total for the whole job, report it; else null.`;
+  the phone: no lists, no markdown. Say prices in euros (e.g. "ninety-three
+  euros", "1,180 euros"), never in cents.
+- In "internal", report faithfully what you did this turn. All internal
+  amounts are integer CENTS (1 euro = 100 cents; 821.25 EUR = 82125). Report
+  all_in_total_for_full_job_net_cents ONLY when you stated one number covering
+  the whole job's mandatory costs; otherwise null.`;
 }
 
 export async function generateSupplierTurn(input: {
@@ -171,7 +193,7 @@ export async function generateSupplierTurn(input: {
   }
   if (violations.length > 0) {
     turn = await run(violations.join(' '));
-    // Final clamp: if the regenerated turn still violates the floor, refuse the number.
+    // Final clamp: if the regenerated turn still violates the floor, hold position.
     if (
       typeof floorCents === 'number' &&
       turn.internal.all_in_total_for_full_job_net_cents !== null &&
@@ -179,7 +201,9 @@ export async function generateSupplierTurn(input: {
     ) {
       turn = {
         message:
-          "Look, I've sharpened my pencil as far as it goes. That last number stands — take it or leave it.",
+          input.state.committed_total_net_cents !== null
+            ? "Look, I've sharpened my pencil as far as it goes. The number I gave you stands."
+            : 'Let me not throw out numbers I cannot hold. Give me a moment — what else do you need to know about the job?',
         internal: {
           concession_step_used: null,
           concession_reason: null,
