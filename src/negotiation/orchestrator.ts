@@ -12,6 +12,8 @@ import {
   type SupplierState,
 } from './supplier-engine';
 import type { Outcome, QuoteLineArgs, ToolCallRecord, TranscriptTurn } from './types';
+import { computeQuoteTotals } from '@/core/quote-pricing';
+import type { VerticalConfig } from '@/config/vertical-schema';
 
 /**
  * Text-tier call orchestration: buyer brain vs supplier policy engine.
@@ -274,7 +276,7 @@ export async function runTextCall(callId: string): Promise<void> {
       callId,
       spec,
       supplierId: session.supplier_id,
-      vertical: vertical.slug,
+      vertical,
       outcome,
       loggedLines,
     });
@@ -303,7 +305,7 @@ async function persistQuote(input: {
   callId: string;
   spec: SpecRow;
   supplierId: string;
-  vertical: string;
+  vertical: VerticalConfig;
   outcome: Outcome;
   loggedLines: Array<QuoteLineArgs & { turn_index: number }>;
 }): Promise<void> {
@@ -320,6 +322,26 @@ async function persistQuote(input: {
     ? new Date(Date.now() + input.outcome.validity_days * 86_400_000).toISOString()
     : null;
 
+  // Deterministic pricing: engine totals are authoritative, cross-checked
+  // against the read-back total from the call.
+  const { data: eventRows } = await supabase
+    .from('negotiation_events')
+    .select('event_type, concession_type, amount_before_cents, amount_after_cents')
+    .eq('call_id', input.callId)
+    .in('event_type', ['concession', 'fee_waived', 'fee_reduced', 'rate_reduced']);
+
+  const totals = computeQuoteTotals({
+    vertical: input.vertical,
+    fields: input.spec.spec.fields,
+    lines: input.loggedLines,
+    concessions: (eventRows ?? []).map((e) => ({
+      category_hint: e.concession_type,
+      amount_before_cents: e.amount_before_cents,
+      amount_after_cents: e.amount_after_cents,
+    })),
+    modelClaimedTotalCents: input.outcome.total_net_cents,
+  });
+
   const { data: quote, error } = await supabase
     .from('quotes')
     .insert({
@@ -329,11 +351,15 @@ async function persistQuote(input: {
       spec_fingerprint: input.spec.spec_fingerprint,
       availability_status: input.outcome.availability_confirmed ? 'confirmed' : 'unconfirmed',
       validity_until: validityUntil,
-      total_after_negotiation_cents: input.outcome.total_net_cents,
-      status: confirmed ? 'confirmed' : 'draft',
-      currency: 'EUR',
+      total_before_negotiation_cents: totals.totalBeforeCents,
+      total_after_negotiation_cents: totals.totalAfterCents,
+      status: confirmed && !totals.engineDisagreesWithModel ? 'confirmed' : 'draft',
+      currency: input.vertical.currency,
       tax_basis: 'net',
-      missing_information: [],
+      vat_rate: input.vertical.vatRate,
+      price_breakdown: totals.breakdown,
+      is_benchmark_outlier: totals.breakdown.is_benchmark_outlier,
+      missing_information: totals.breakdown.unknown_categories,
     })
     .select('id')
     .single();
