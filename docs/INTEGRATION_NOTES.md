@@ -38,18 +38,95 @@ Source: https://supabase.com/docs/guides/api/api-keys
   (requires `--reveal`; without it the CLI returns masked values that LOOK like keys).
   No values were printed.
 
-## ElevenLabs (verified 2026-07-18, more in step 9)
+## ElevenLabs (docs read 2026-07-18: quickstart, webhook tools, post-call webhooks, WebSocket, React SDK, agents-create API schema)
 
-- `GET https://api.elevenlabs.io/v1/user/subscription` with header
-  `xi-api-key: <key>` → 200. Account tier: creator, status active.
-- Agents Platform docs to be read before step 8c/9: https://elevenlabs.io/docs/agents-platform
-  (WebSocket/real-time page + post-call webhook page). Findings land here.
+Base: `https://api.elevenlabs.io`, auth header `xi-api-key: <key>`. Docs pages: append
+`.md` for markdown; section index at `/docs/eleven-agents/llms.txt`.
+
+- Subscription check: `GET /v1/user/subscription` → 200, tier creator, active.
+- **SDKs:** server `@elevenlabs/elevenlabs-js` (client `elevenlabs.conversationalAi.*`),
+  browser `@elevenlabs/react` (`ConversationProvider` + `useConversation`;
+  `startSession({ signedUrl | conversationToken | agentId })` → `conversationId`;
+  callbacks `onMessage`, `onModeChange`, `onStatusChange`, `onAgentChatResponsePart`;
+  `textOnly` mode exists; voice uses WebRTC by default, text uses WebSocket).
+- **Create/update agent:** `conversationalAi.agents.create({ name, tags,
+  conversationConfig })`, `agents.update(agentId, {...})`. Key config paths
+  (snake_case on wire; SDK accepts camelCase):
+  - `conversation_config.agent.first_message`, `.agent.language`,
+    `.agent.prompt.prompt`, `.agent.prompt.llm`, `.agent.prompt.tool_ids`
+  - `conversation_config.agent.prompt.custom_llm`: `{ url, model_id, api_key
+    {secret_id|env_var_label}, api_type: 'chat_completions' | 'responses' }` — an
+    OpenAI-compatible endpoint URL; used when llm = 'CUSTOM_LLM'
+  - `conversation_config.conversation.max_duration_seconds` (default 600) — hard cap
+  - `conversation_config.conversation.text_only: true` — "audio will not be processed
+    and only text will be used, use to avoid audio pricing" (text-tier lever)
+  - `conversation_config.turn.turn_timeout` (default 7 s),
+    `.turn.silence_end_call_timeout` (default -1 = off; set to hang up on silence)
+  - `platform_settings.auth.enable_auth` — private agent, sessions require signed URL
+- **Signed URL (server-side, key never in browser):**
+  `GET /v1/convai/conversation/get-signed-url?agent_id=...` → `{ signed_url }`. WebRTC
+  token variant: `GET /v1/convai/conversation/token?agent_id=...` → `{ token }`.
+- **Webhook tools:** `conversationalAi.tools.create({ toolConfig: { type: 'webhook',
+  name, description, api_schema: { url, method, path_params_schema,
+  body_params_schema... } } })`, then reference via `prompt.tool_ids`. (We mostly do
+  NOT need these: the buyer brain runs as OUR custom LLM and executes tools
+  server-side, which is the truth-layer enforcement point.)
+- **Post-call webhooks:** workspace-level setting (dashboard) with HMAC
+  (`ElevenLabs-Signature`, `elevenlabs.webhooks.constructEvent(rawBody, sig, secret)`).
+  Types: `post_call_transcription` (full transcript incl. `tool_calls`,
+  `tool_results`, `time_in_call_secs` per turn, `metadata` with costs/duration),
+  `post_call_audio` (base64 MP3 in `data.full_audio`), `call_initiation_failure`.
+  **Decision: PULL instead of webhooks** to avoid dashboard-only setup — after a
+  session ends we fetch `GET /v1/convai/conversations/{conversation_id}` (transcript,
+  status) and `GET /v1/convai/conversations/{conversation_id}/audio` (recording),
+  with retry until analysis is done. Webhooks can be added later without code changes
+  elsewhere.
+- **Raw WebSocket** (if needed for audio routing): `wss://api.elevenlabs.io/v1/convai/
+  conversation?agent_id=...` (or signed URL); client sends
+  `{ user_audio_chunk: <base64> }`, `{ type: 'contextual_update', text }`, pong replies;
+  receives `user_transcript`, `agent_response`, `audio` (base64 chunks + alignment),
+  `interruption`, `ping`, `agent_chat_response_part`.
+- **Simulate-conversation API is deprecated** (replaced by agent-testing endpoints).
+  Not needed: our text tier runs our own buyer-policy loop against our supplier engine
+  directly via OpenAI — zero ElevenLabs minutes.
+
+### Voice architecture decisions (budget: 250 agent minutes total)
+
+- One negotiation brain, two transports. The buyer policy is OUR server code (OpenAI
+  pinned model + server-side tools = truth layer). Text tier: plain loop, no
+  ElevenLabs. Voice tier: ElevenLabs agent whose LLM is our custom-LLM endpoint
+  (`/api/llm/v1/chat/completions`), so voice and text tiers share the identical
+  policy and tool gating.
+- Supplier side never runs as a second ElevenLabs agent (would double minute burn).
+  Supplier policy = dynamic stateful model; in voice mode its turns are synthesized
+  via ElevenLabs TTS and routed into the buyer agent session as user audio (honest
+  fallback per AGENTS.md §9).
+- Intake agent: standard ElevenLabs agent (hosted LLM), private (`enable_auth`),
+  browser sessions via signed URL. Transcript pulled after session; extraction into
+  JobSpec reuses the document-intake extraction path.
+- Budget guards in code: `max_duration_seconds` 180 (intake) / 240 (negotiation),
+  `silence_end_call_timeout` ~15 s, server-side session gate that refuses to mint a
+  signed URL when the remaining subscription quota is low, voice reserved for loop
+  verification + golden run + final demo.
 
 ## OpenAI (verified 2026-07-18)
 
 - `GET https://api.openai.com/v1/models` with `Authorization: Bearer <key>` → 200.
-- Model pinning + strict structured outputs decided in step 8 after reading current
-  docs (Responses API vs chat.completions — check `json_schema` strict mode support).
+- **Pinned models** (dated snapshots available on this key, chosen for reproducibility):
+  - Reasoning / extraction / buyer negotiation: `gpt-5.5-2026-04-23`
+  - Cheap roles (supplier simulation turns, validator scans): `gpt-5.4-mini-2026-03-17`
+- **Structured outputs** (docs: /docs/guides/structured-outputs): use the Responses API.
+  - SDK: `openai` 6.48.0. `client.responses.parse({ model, input, text: { format:
+    zodTextFormat(schema, 'name') } })` with `import { zodTextFormat } from
+    'openai/helpers/zod'`.
+  - Strict schema rules: all fields required (use `.nullable()` instead of optional),
+    refusals surface as `content` item `type: 'refusal'` — must be handled.
+  - Function calling variant used for the negotiation tool surface; text.format for
+    user-facing structured replies.
+- **File inputs** (docs: /docs/guides/pdf-files): Responses API `input_file` content
+  part. PDFs: base64 `file_data: 'data:application/pdf;base64,...'` + `filename`, model
+  receives text + page images (vision models). Images go as `input_image` data URLs.
+  50 MB combined per-request limit. Upload purpose `user_data` if using Files API.
 
 ## Tavily (verified 2026-07-18)
 
