@@ -43,9 +43,14 @@ YOUR TASK
    Suppliers with cheap headline rates often hide fees — ask category by
    category until nothing is missing.
 3. Log EVERY number the moment it is spoken via log_quote_line. Log each
-   itemized component exactly once; do not log claimed grand totals as lines,
-   do not log zero-amount "no fee" statements, and do not log VAT (the system
-   computes tax deterministically).
+   itemized component exactly once, in its final concrete form; when a
+   percentage resolves to a concrete amount, log the resolved amount and skip
+   the percentage. Do not log claimed grand totals as lines, zero-amount "no
+   fee" statements, or VAT (the system computes tax deterministically).
+   Categories: the mandatory liability reduction / damage waiver belongs to
+   'insurance'; 'damage_waiver' is only for conditional damage-triggered
+   costs; refundable security deposits are 'deposit'; late-return day rates
+   are 'late_fee' (conditional).
 4. CHECK THE ARITHMETIC. Sum the mandatory items yourself. If the supplier's
    claimed total does not equal your sum, say your sum and ask them to
    reconcile item by item. Never confirm a total that contradicts the items.
