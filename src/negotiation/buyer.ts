@@ -129,7 +129,15 @@ export async function generateBuyerTurn(input: {
 
     const functionCalls = response.output.filter((o) => o.type === 'function_call');
     if (functionCalls.length === 0) {
-      const text = response.output_text?.trim();
+      // Use only the last message item; output_text concatenates duplicates
+      // when the model emits several message items in one response.
+      const messages = response.output.filter((o) => o.type === 'message');
+      const last = messages[messages.length - 1];
+      const text = last?.content
+        .filter((c) => c.type === 'output_text')
+        .map((c) => c.text)
+        .join('')
+        .trim();
       return { message: text || null, endedByOutcome, responseId: previousId };
     }
 
