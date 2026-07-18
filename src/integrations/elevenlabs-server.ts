@@ -13,13 +13,18 @@ export function elevenlabs(): ElevenLabsClient {
 }
 
 export async function getAppSetting(key: string): Promise<string | null> {
-  const { data, error } = await supabaseAdmin()
-    .from('app_settings')
-    .select('value')
-    .eq('key', key)
-    .maybeSingle();
-  if (error) throw new Error(`app_settings read failed: ${error.message}`);
-  return data?.value ?? null;
+  // One retry: cold-started functions occasionally hit transient clock-skew
+  // ("JWT issued at future") on the first Supabase request.
+  for (let attempt = 0; ; attempt++) {
+    const { data, error } = await supabaseAdmin()
+      .from('app_settings')
+      .select('value')
+      .eq('key', key)
+      .maybeSingle();
+    if (!error) return data?.value ?? null;
+    if (attempt >= 1) throw new Error(`app_settings read failed: ${error.message}`);
+    await new Promise((r) => setTimeout(r, 400));
+  }
 }
 
 /** Signed URL for a private agent session. The API key never reaches the browser. */
