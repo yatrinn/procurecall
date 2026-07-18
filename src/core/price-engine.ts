@@ -104,6 +104,13 @@ export function computePriceBreakdown(lines: PriceLine[], ctx: PriceContext): Pr
       );
       return abs;
     }
+    // A conditional per-day fee (late return, overtime) is exposure per
+    // triggered day, not a cost across the whole rental. It enters the
+    // conditional bucket as ONE day of exposure, explicitly noted.
+    if (l.is_conditional && l.unit === 'per_day') {
+      notes.push(`${l.label}: conditional per-day fee counted as one day of exposure.`);
+      return l.amount_cents;
+    }
     return normalizeToDuration(l, days, weeks);
   };
 

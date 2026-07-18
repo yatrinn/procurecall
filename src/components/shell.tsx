@@ -1,6 +1,10 @@
 import Link from 'next/link';
 
-const NAV: Array<{ href: string; label: string }> = [{ href: '/', label: 'Overview' }];
+const NAV: Array<{ href: string; label: string }> = [
+  { href: '/', label: 'Overview' },
+  { href: '/request', label: 'New request' },
+  { href: '/demo', label: 'Demo' },
+];
 
 /**
  * Application shell: quiet header, alignment over borders.

@@ -33,13 +33,14 @@ export interface TapePin {
 
 export function CallTape({
   callId,
-  turns,
-  pins,
+  turns: allTurns,
+  pins: allPins,
   durationMs,
   audioUrl,
   registerPinElement,
   highlightTurn,
   onSelectTurn,
+  revealUntilMs,
 }: {
   callId: string;
   turns: TapeTurn[];
@@ -50,10 +51,27 @@ export function CallTape({
   registerPinElement?: (pinId: string, el: HTMLButtonElement | null) => void;
   highlightTurn?: number | null;
   onSelectTurn?: (turnIndex: number) => void;
+  /** Verified replay: only render content up to this moment. */
+  revealUntilMs?: number | null;
 }) {
   const [openTurn, setOpenTurn] = useState<number | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const listRef = useRef<HTMLOListElement | null>(null);
+
+  const turns = useMemo(
+    () =>
+      revealUntilMs === null || revealUntilMs === undefined
+        ? allTurns
+        : allTurns.filter((t) => t.at_ms <= revealUntilMs),
+    [allTurns, revealUntilMs],
+  );
+  const pins = useMemo(
+    () =>
+      revealUntilMs === null || revealUntilMs === undefined
+        ? allPins
+        : allPins.filter((p) => p.at_ms <= revealUntilMs),
+    [allPins, revealUntilMs],
+  );
 
   const total = Math.max(durationMs, 1);
   const pos = (ms: number) => `${Math.min(97, Math.max(1, (ms / total) * 96 + 2))}%`;
@@ -95,6 +113,14 @@ export function CallTape({
       <div className="relative mt-6 h-[92px]" role="group" aria-label={`Call tape ${callId}`}>
         {/* spine */}
         <div className="absolute left-0 right-0 top-[44px] h-px bg-line" aria-hidden />
+        {/* replay playhead */}
+        {revealUntilMs !== null && revealUntilMs !== undefined && revealUntilMs < total ? (
+          <div
+            className="absolute top-[20px] h-[48px] w-px bg-ink/60"
+            style={{ left: pos(revealUntilMs) }}
+            aria-hidden
+          />
+        ) : null}
         {/* turn blocks */}
         {turns.map((t) => {
           const next = turns.find((x) => x.turn_index > t.turn_index);

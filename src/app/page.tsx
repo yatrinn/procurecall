@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { Shell } from '@/components/shell';
 import { supabaseAdmin } from '@/integrations/supabase-server';
 import { getVertical, DEFAULT_VERTICAL_SLUG } from '@/config/verticals';
@@ -36,6 +37,20 @@ export default async function Home() {
           extracts every fee, and pins each number to the second of the recording where it was
           said.
         </p>
+        <div className="mt-8 flex flex-wrap gap-3">
+          <Link
+            href="/demo"
+            className="rounded-sm bg-ink px-4 py-2 text-sm font-medium text-paper hover:bg-black"
+          >
+            See the demo
+          </Link>
+          <Link
+            href="/request"
+            className="rounded-sm border border-line bg-paper px-4 py-2 text-sm text-ink hover:border-steel"
+          >
+            Start a request
+          </Link>
+        </div>
       </div>
 
       <div className="mt-14 grid max-w-3xl grid-cols-1 gap-x-12 gap-y-6 sm:grid-cols-3">
