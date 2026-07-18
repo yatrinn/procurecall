@@ -31,6 +31,9 @@ node_modules/
 *.tsbuildinfo
 next-env.d.ts
 
+# supabase CLI state
+supabase/.temp/
+
 # misc
 .DS_Store
 *.pem
