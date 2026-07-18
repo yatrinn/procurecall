@@ -1,6 +1,15 @@
 # STATUS.md — ProcureCall
 
-> Last updated: 2026-07-18 · after environment inspection and planning docs
+> Last updated: 2026-07-19 · Gate 1 (closed loop) verified in production
+
+## Gate 1 — CLOSED LOOP: DONE, verified live
+
+- Production URL: https://procurecall.vercel.app
+- Verified end to end in production: text intake → validated draft JobSpec →
+  confirmation froze spec `5f60310c0bfb` → one dynamic text-tier negotiation against a
+  simulated supplier (12 turns, AI disclosure, itemized fee extraction, read-back
+  confirmation) → structured outcome `quote`, status `confirmed`, 89500 cents net →
+  visible on the board and decision pages.
 
 ## What works
 
@@ -25,11 +34,33 @@
   cream), no serif display, no terracotta, no dark+acid scheme, no broadsheet density,
   numbers in mono. Watch item: keep rules/borders minimal, keep hi-vis scarce.
 
+- Intake: text and document paths produce identical validated JobSpec drafts
+  (document upload → OpenAI file input, fenced against prompt injection). Voice
+  intake UI + signed-URL flow + budget gate built (live voice session not yet
+  exercised — reserved for the voice verification pass).
+- Confirmation: freezes spec, computes canonical form + SHA-256 fingerprint; edits
+  after confirmation create version 2 with parent link (verified). Calls are blocked
+  server-side until confirmed (verified).
+- Negotiation core: buyer brain (pinned gpt-5.5 snapshot) with tool-gated truth layer
+  (`request_verified_leverage` picks and verifies the competing quote server-side),
+  lever tools absent unless authorized, dynamic supplier policy engine (pinned
+  gpt-5.4-mini) with floor/ladder enforcement in code.
+- Full call loop in production: quote lines logged with transcript refs, read-back
+  confirmation, structured outcome, quote + lines persisted.
+- Live board (polling) and functional decision room deployed.
+
 ## What does not work yet
 
-- Intake (voice, document), confirmation + fingerprint, negotiation, price engine,
-  truth layer, evidence ledger, demo, replay — not built yet.
-- No production deploy yet.
+- Price engine exists (`src/core/price-engine.ts`) but is not yet wired into quotes
+  (no breakdown persisted, no red-flag display). Ranking is a plain sort, clearly
+  labeled as not a recommendation.
+- Only supplier A exercised so far; B (hidden fees) and C (hard dispatcher) seeded
+  but not yet run. No negotiation-improvement demo yet (needs a second confirmed
+  quote as leverage).
+- No voice-tier negotiation call yet; no recordings; no evidence-audio scrubbing.
+- Post-call validator, evidence ledger, verified replay, public /demo, adversarial
+  suite, eval lab, moving vertical: not built yet.
+- Voice usage tracking table exists; 0 minutes consumed so far.
 
 ## Deployment
 
