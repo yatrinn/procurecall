@@ -118,9 +118,9 @@ export default async function DemoPage() {
           Three different calls.
         </h1>
         <p className="mt-4 max-w-2xl text-base text-steel sm:text-sm">
-          Brief: {vertical.demoRequestSummary.toLowerCase()}. Hit play to hear the three
-          negotiations and watch each fee appear on the tape when it was said. Then open the
-          decision room — ranked totals, with a jump back to the exact moment for every number.
+          Brief: {vertical.demoRequestSummary}. Hit play to hear the three negotiations and
+          watch each fee appear on the tape when it was said. Then open the decision room —
+          ranked totals, with a jump back to the exact moment for every number.
         </p>
         <ol className="mt-5 max-w-xl list-decimal space-y-1 pl-5 text-sm text-steel">
           <li>Play the recorded run below</li>
