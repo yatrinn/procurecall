@@ -197,14 +197,20 @@ async function writeExplanation(
       input: [{ role: 'user', content: `Computed ranking:\n${facts}` }],
     });
     const text = response.output_text?.trim() ?? '';
-    // Numeric guard: the model only explains; if any decimal amount in its
-    // prose does not literally exist in the engine facts (a rescale like
-    // 795.00 → 79.50 would slip here), fall back to the deterministic text.
-    const allowed = new Set((facts.match(/\d+\.\d{2}/g) ?? []).map((n) => n));
-    const cited = text.match(/\d+\.\d{2}/g) ?? [];
-    const allCitedValid = cited.every((n) => allowed.has(n));
-    if (!text || !allCitedValid) {
-      console.error('explanation rejected by numeric guard:', { cited: cited.filter((n) => !allowed.has(n)) });
+    // Numeric guard: the model only explains. Any amount it cites must be an
+    // engine fact or a pairwise difference of engine facts — a rescale like
+    // 795.00 → 79.50 can never pass. Otherwise: deterministic fallback.
+    const factNumbers = (facts.match(/\d+\.\d{2}/g) ?? []).map((n) => Math.round(parseFloat(n) * 100));
+    const allowed = new Set<number>(factNumbers);
+    for (const a of factNumbers) {
+      for (const b of factNumbers) {
+        if (a > b) allowed.add(a - b);
+      }
+    }
+    const cited = (text.match(/\d+\.\d{2}/g) ?? []).map((n) => Math.round(parseFloat(n) * 100));
+    const invalid = cited.filter((n) => !allowed.has(n));
+    if (!text || invalid.length > 0) {
+      console.error('explanation rejected by numeric guard:', { invalid });
       return fallbackExplanation(ranking, byId, currency);
     }
     return text;
@@ -212,6 +218,16 @@ async function writeExplanation(
     return fallbackExplanation(ranking, byId, currency);
   }
 }
+
+const CODE_SENTENCES: Record<string, string> = {
+  LOWEST_EXPECTED_TOTAL: 'the lowest expected total',
+  COMPLETE_ITEMIZED_QUOTE: 'a complete itemized quote',
+  AVAILABILITY_CONFIRMED: 'confirmed availability',
+  SUPPLIER_CONFIRMED_TOTAL: 'a total the supplier confirmed verbally',
+  NEGOTIATED_IMPROVEMENT: 'a price that improved during the call',
+  NO_DEPOSIT_REQUIRED: 'no deposit',
+  LOWEST_CASH_REQUIRED: 'the lowest cash requirement',
+};
 
 function fallbackExplanation(
   ranking: RankingResult,
@@ -221,5 +237,15 @@ function fallbackExplanation(
   const top = ranking.entries.find((e) => e.rank === 1);
   if (!top) return 'No quote passed the hard constraints.';
   const q = byId.get(top.quote_id)!;
-  return `${top.supplier_name} ranks first at ${formatCents(q.expected_case_cents ?? 0, currency)} expected net (${top.reason_codes.join(', ')}).`;
+  const reasons = top.reason_codes
+    .map((c) => CODE_SENTENCES[c])
+    .filter((x): x is string => !!x);
+  const runnerUp = ranking.entries.find((e) => e.rank === 2);
+  const rq = runnerUp ? byId.get(runnerUp.quote_id) : null;
+  return (
+    `${top.supplier_name} ranks first at ${formatCents(q.expected_case_cents ?? 0, currency)} expected net, with ${reasons.slice(0, 4).join(', ')}.` +
+    (runnerUp && rq
+      ? ` The nearest alternative is ${runnerUp.supplier_name} at ${formatCents(rq.expected_case_cents ?? 0, currency)}.`
+      : '')
+  );
 }
