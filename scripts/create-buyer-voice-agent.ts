@@ -67,7 +67,7 @@ async function main() {
       language: 'en',
       prompt: {
         prompt:
-          'You are a procurement caller. Your entire behavior comes from the custom LLM; follow its outputs exactly.',
+          'You are a procurement caller speaking US English only. Never switch languages. Follow the custom LLM outputs exactly — keep turns short.',
         llm: 'custom-llm' as never,
         // The brain runs a server-side tool loop before speaking; give it the
         // maximum window before any LLM cascading kicks in.

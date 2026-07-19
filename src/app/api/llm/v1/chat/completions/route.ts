@@ -35,12 +35,13 @@ function contentToText(content: ChatMessage['content']): string {
 }
 
 const FILLER_START =
-  /^(got it[.!]?\s*|alright[.!]?\s*|okay[.!]?\s*|ok[.!]?\s*|one (second|moment)[.!]?\s*|sure[.!]?\s*)+/i;
+  /^(got it[.!]?\s*|alright[.!]?\s*|all right[.!]?\s*|okay[.!]?\s*|ok[.!]?\s*|right[.!]?\s*|sure[.!]?\s*|understood[.!]?\s*|noted[.!]?\s*|thanks[.!]?\s*|thank you[.!]?\s*|one (second|moment)[.!]?\s*|mm-?hmm[.!]?\s*|yeah[.!]?\s*|yep[.!]?\s*)+/i;
+
+const CJK = /[\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff\uac00-\ud7af]/;
 
 function stripLeadingFiller(text: string): string {
   let t = text.trim();
-  // Peel repeated leading fillers the model still emits despite instructions.
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 4; i++) {
     const next = t.replace(FILLER_START, '').trim();
     if (next === t) break;
     t = next;
@@ -48,27 +49,8 @@ function stripLeadingFiller(text: string): string {
   return t;
 }
 
-function countGotIt(texts: string[]): number {
-  return texts.reduce((n, t) => n + (t.match(/\bgot it\b/gi) ?? []).length, 0);
-}
-
-const ACK_POOL = [
-  'Understood. ',
-  'Right. ',
-  'Thanks. ',
-  'Noted. ',
-  'Okay. ',
-  'Got it. ',
-];
-
-function pickAck(gotItCount: number, isFirstTurn: boolean): string {
-  if (isFirstTurn) return 'Good morning. ';
-  const pool =
-    gotItCount >= 2 ? ACK_POOL.filter((a) => !/^Got it/i.test(a)) : ACK_POOL;
-  // Often skip the spoken ack entirely after the opening — less filler, faster
-  // perceived turn. Speak one about half the time.
-  if (Math.random() < 0.45) return '';
-  return pool[Math.floor(Math.random() * pool.length)];
+function isEnglishSafe(text: string): boolean {
+  return !CJK.test(text);
 }
 
 export async function POST(request: Request) {
@@ -139,9 +121,14 @@ export async function POST(request: Request) {
       supplierName: supplier.name,
       levers: spec.authorized_levers,
     }) +
-    '\n\nVOICE MODE: you are live on a phone call. Keep utterances short and natural. Numbers slowly and clearly. The system may have already voiced a brief acknowledgement for you — NEVER start your reply with filler words (Alright, Okay, Got it, One moment); go straight to substance. "Got it" at most twice in the whole call. Batch all log_quote_line calls for one supplier utterance into a single parallel tool batch. When the deal is done, call record_outcome and say a short goodbye — then stop. Never ask another question after goodbye.' +
+    '\n\nVOICE MODE — live phone call:\n' +
+    '- LANGUAGE: US English only. Never Chinese, never any other language. If you catch yourself drifting, switch back to English immediately.\n' +
+    '- LENGTH: one or two short questions per turn. Do not ask about delivery, pickup, insurance, deposit, cleaning, and late fees in the same breath — pick the next missing piece and ask that.\n' +
+    '- NO FILLER OPENERS: never start with Got it / Right / Okay / Understood / Noted / Alright. Start with the substance.\n' +
+    '- Numbers slowly and clearly. Batch log_quote_line calls for one supplier utterance into one parallel tool batch.\n' +
+    '- When done: record_outcome, one short goodbye, stop. No more questions after goodbye.' +
     (alreadyEnded
-      ? '\n\nThe outcome for this call is already recorded. Say a short goodbye now and do not call any more tools.'
+      ? '\n\nThe outcome for this call is already recorded. Say a short English goodbye now and do not call any more tools.'
       : '');
 
   const history = body.messages
@@ -152,9 +139,6 @@ export async function POST(request: Request) {
     }))
     .filter((m) => m.content.length > 0);
 
-  const priorAssistantText = history.filter((m) => m.role === 'assistant').map((m) => m.content);
-  const gotItSoFar = countGotIt(priorAssistantText);
-
   type Item =
     | { role: 'user' | 'assistant'; content: string }
     | { type: 'function_call'; call_id: string; name: string; arguments: string }
@@ -162,9 +146,67 @@ export async function POST(request: Request) {
 
   const record = (r: ToolCallRecord) => newToolRecords.push(r);
 
-  // Always the voice-pinned model — gpt-5.5 on commercial turns was the
-  // multi-second pause the founder kept hearing between dispatcher and reply.
+  // gpt-5.5 + low effort: sharp enough for negotiation, fast enough for phone.
   const turnModel = MODELS.voice;
+
+  const extractText = (response: {
+    output: Array<{ type: string; content?: Array<{ type: string; text?: string }> }>;
+  }): string => {
+    const texts = response.output
+      .filter((o) => o.type === 'message')
+      .map((m) =>
+        (m.content ?? [])
+          .filter((c) => c.type === 'output_text')
+          .map((c) => c.text ?? '')
+          .join('')
+          .trim(),
+      )
+      .filter((t) => t.length > 0);
+    return stripLeadingFiller(texts[texts.length - 1] ?? '');
+  };
+
+  const finalizeSpoken = async (
+    text: string,
+    items: Item[],
+    endedThisTurn: boolean,
+  ): Promise<string> => {
+    let spoken = text;
+    if (!isEnglishSafe(spoken)) {
+      // Hard guard: never let CJK (or other script slips) reach TTS.
+      try {
+        const retry = await openai().responses.create({
+          model: turnModel,
+          instructions:
+            systemPrompt +
+            '\n\nCRITICAL: your previous draft was not US English. Rewrite the SAME meaning in plain US English only. No Chinese characters. No filler openers. One or two short sentences.',
+          input: [
+            ...items,
+            {
+              role: 'user',
+              content:
+                'Rewrite your last reply in US English only. Keep it under 35 words. No filler.',
+            },
+          ],
+          tool_choice: 'none',
+          store: false,
+          reasoning: { effort: 'low' },
+        });
+        spoken = extractText(retry);
+      } catch {
+        spoken = '';
+      }
+      if (!spoken || !isEnglishSafe(spoken)) {
+        spoken = endedThisTurn
+          ? 'Thanks — goodbye.'
+          : 'Sorry, could you say that again?';
+      }
+    }
+    if (endedThisTurn && spoken && !/\b(bye|goodbye|talk soon|take care)\b/i.test(spoken)) {
+      spoken = `${spoken.replace(/\s*$/, '')} Bye.`;
+    }
+    if (endedThisTurn && !spoken) spoken = 'Thanks — goodbye.';
+    return spoken;
+  };
 
   const runBrain = async (): Promise<string> => {
     let items: Item[] = history;
@@ -179,28 +221,11 @@ export async function POST(request: Request) {
         tools: forceClose || alreadyEnded ? undefined : toOpenAiTools(tools),
         tool_choice: forceClose || alreadyEnded ? 'none' : 'auto',
         store: false,
-        // Keep live-phone latency low; commercial judgment still holds on 5.4.
         reasoning: { effort: 'low' },
       });
       const functionCalls = response.output.filter((o) => o.type === 'function_call');
       if (functionCalls.length === 0) {
-        const texts = response.output
-          .filter((o) => o.type === 'message')
-          .map((m) =>
-            m.content
-              .filter((c) => c.type === 'output_text')
-              .map((c) => c.text)
-              .join('')
-              .trim(),
-          )
-          .filter((t) => t.length > 0);
-        let text = texts[texts.length - 1] ?? '';
-        text = stripLeadingFiller(text);
-        if (endedThisTurn && text && !/\b(bye|goodbye|talk soon|take care)\b/i.test(text)) {
-          text = `${text.replace(/\s*$/, '')} Bye.`;
-        }
-        if (endedThisTurn && !text) text = 'Thanks — goodbye.';
-        return text;
+        return finalizeSpoken(extractText(response), items, endedThisTurn);
       }
       const outputs: Item[] = [];
       for (const call of functionCalls) {
@@ -228,33 +253,22 @@ export async function POST(request: Request) {
         });
       }
       items = [...items, ...outputs];
-      // Outcome recorded → one forced spoken close, no more tool hops.
       if (endedThisTurn) {
         const close = await openai().responses.create({
           model: turnModel,
           instructions:
             systemPrompt +
-            '\n\nThe outcome is recorded. Speak one short closing sentence that includes goodbye. No questions. No tools.',
+            '\n\nThe outcome is recorded. Speak one short US-English closing sentence that includes goodbye. No questions. No tools. No filler.',
           input: items,
           tool_choice: 'none',
           store: false,
           reasoning: { effort: 'low' },
         });
-        const texts = close.output
-          .filter((o) => o.type === 'message')
-          .map((m) =>
-            m.content
-              .filter((c) => c.type === 'output_text')
-              .map((c) => c.text)
-              .join('')
-              .trim(),
-          )
-          .filter((t) => t.length > 0);
-        let text = stripLeadingFiller(texts[texts.length - 1] ?? 'Thanks — goodbye.');
-        if (!/\b(bye|goodbye|talk soon|take care)\b/i.test(text)) {
-          text = `${text.replace(/\s*$/, '')} Bye.`;
-        }
-        return text;
+        return finalizeSpoken(
+          extractText(close) || 'Thanks — goodbye.',
+          items,
+          true,
+        );
       }
     }
     return '';
@@ -284,8 +298,8 @@ export async function POST(request: Request) {
       .eq('id', callId);
   };
 
-  const isFirstTurn = history.length <= 1;
-  const ack = pickAck(gotItSoFar, isFirstTurn);
+  // No spoken filler ack — that was the "Right." / "Got it." spam. First SSE
+  // byte is role-only so ElevenLabs still starts the turn without dead air.
   const requestStartedAt = Date.now();
   const encoder = new TextEncoder();
   const id = `chatcmpl-${callId.slice(0, 8)}-${Date.now()}`;
@@ -304,7 +318,6 @@ export async function POST(request: Request) {
           ),
         );
       chunk({ role: 'assistant' });
-      if (ack) chunk({ content: ack });
       const firstContentMs = Date.now() - requestStartedAt;
       const heartbeat = setInterval(() => chunk({}), 2500);
       let finalText = '';
@@ -316,17 +329,15 @@ export async function POST(request: Request) {
         clearInterval(heartbeat);
       }
       if (!finalText) finalText = 'Sorry, could you repeat that?';
-      // Hard cap: if this ack would be a 3rd+ "Got it", drop it from the spoken stream
-      // (already streamed only when pickAck allowed it).
       console.log(
-        `voice-turn call=${callId.slice(0, 8)} model=voice first_content_ms=${firstContentMs} brain_ms=${Date.now() - requestStartedAt} got_it_prior=${gotItSoFar}`,
+        `voice-turn call=${callId.slice(0, 8)} model=voice first_content_ms=${firstContentMs} brain_ms=${Date.now() - requestStartedAt}`,
       );
       const parts = finalText.match(/[^.!?]+[.!?]*\s*/g) ?? [finalText];
       for (const part of parts) chunk({ content: part });
       chunk({}, 'stop');
       controller.enqueue(encoder.encode('data: [DONE]\n\n'));
       controller.close();
-      await persistTurn(ack + finalText).catch((e) => console.error('persist failed:', e));
+      await persistTurn(finalText).catch((e) => console.error('persist failed:', e));
     },
   });
   return new Response(stream, {
