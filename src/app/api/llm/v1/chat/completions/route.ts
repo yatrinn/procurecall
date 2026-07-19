@@ -12,13 +12,12 @@ export const maxDuration = 120;
 /**
  * OpenAI-compatible chat completions endpoint: the voice tier's brain.
  *
- * The ElevenLabs buyer agent is configured with this URL as its custom LLM,
- * so the identical policy, tool surface, and truth-layer gating drive voice
- * calls. ElevenLabs handles STT/TTS/turn-taking; we run the buyer brain and
- * execute all tools server-side, then stream the utterance back as SSE.
- *
- * Auth: shared bearer token (voice_llm_token in app_settings).
- * Call context: x-call-id header, set per session via a dynamic variable.
+ * Latency strategy:
+ * 1. ElevenLabs first_message greets immediately (no brain wait on connect).
+ * 2. While the brain runs, we stream a short bridge (varied filler or a brief
+ *    echo of what the dispatcher just said) so the line never goes silent.
+ * 3. After a mutual goodbye / recorded outcome, we emit ElevenLabs end_call
+ *    so the agent hangs up instead of looping "bye".
  */
 
 interface ChatMessage {
@@ -35,9 +34,20 @@ function contentToText(content: ChatMessage['content']): string {
 }
 
 const FILLER_START =
-  /^(got it[.!]?\s*|alright[.!]?\s*|all right[.!]?\s*|okay[.!]?\s*|ok[.!]?\s*|right[.!]?\s*|sure[.!]?\s*|understood[.!]?\s*|noted[.!]?\s*|thanks[.!]?\s*|thank you[.!]?\s*|one (second|moment)[.!]?\s*|mm-?hmm[.!]?\s*|yeah[.!]?\s*|yep[.!]?\s*)+/i;
+  /^(got it[.!,—-]*\s*|alright[.!,—-]*\s*|all right[.!,—-]*\s*|okay[.!,—-]*\s*|ok[.!,—-]*\s*|right[.!,—-]*\s*|sure[.!,—-]*\s*|understood[.!,—-]*\s*|noted[.!,—-]*\s*|thanks[.!,—-]*\s*|thank you[.!,—-]*\s*|one (second|moment)[.!,—-]*\s*|mm-?hmm[.!,—-]*\s*|yeah[.!,—-]*\s*|yep[.!,—-]*\s*)+/i;
 
 const CJK = /[\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff\uac00-\ud7af]/;
+const BYE_RE = /\b(bye|goodbye|good bye|talk soon|take care|have a good (one|day))\b/i;
+
+const BRIDGE_FILLERS: Array<{ key: string; text: string; pattern: RegExp }> = [
+  { key: 'mmhmm', text: 'Mm-hmm. ', pattern: /\bmm-?hmm\b/i },
+  { key: 'okay', text: 'Okay - ', pattern: /\bokay\b|\bok\b/i },
+  { key: 'sure', text: 'Sure - ', pattern: /\bsure\b/i },
+  { key: 'yeah', text: 'Yeah - ', pattern: /\byeah\b|\byep\b/i },
+  { key: 'gotit', text: 'Got it - ', pattern: /\bgot it\b/i },
+  { key: 'alright', text: 'Alright - ', pattern: /\bal+right\b/i },
+  { key: 'thanks', text: 'Thanks - ', pattern: /\bthanks\b|\bthank you\b/i },
+];
 
 function stripLeadingFiller(text: string): string {
   let t = text.trim();
@@ -51,6 +61,79 @@ function stripLeadingFiller(text: string): string {
 
 function isEnglishSafe(text: string): boolean {
   return !CJK.test(text);
+}
+
+function countFillerUses(assistantTexts: string[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const { key, pattern } of BRIDGE_FILLERS) {
+    let n = 0;
+    for (const t of assistantTexts) n += (t.match(new RegExp(pattern.source, 'gi')) ?? []).length;
+    counts.set(key, n);
+  }
+  return counts;
+}
+
+function lastFillerKey(assistantTexts: string[]): string | null {
+  const last = [...assistantTexts].reverse()[0] ?? '';
+  for (const { key, pattern } of BRIDGE_FILLERS) {
+    if (pattern.test(last.slice(0, 40))) return key;
+  }
+  return null;
+}
+
+/** Brief echo of the last dispatcher phrase — keeps the line alive naturally. */
+function echoBridge(lastUser: string): string | null {
+  const cleaned = lastUser
+    .replace(/["""']/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (cleaned.length < 12 || cleaned.length > 120) return null;
+  if (BYE_RE.test(cleaned)) return null;
+  // Skip pure noise / one-word replies.
+  const words = cleaned.split(' ').filter(Boolean);
+  if (words.length < 3 || words.length > 14) return null;
+  // Take a short trailing chunk and capitalize.
+  const chunk = words.slice(-Math.min(6, words.length)).join(' ');
+  const echoed = chunk.charAt(0).toUpperCase() + chunk.slice(1);
+  if (!/[.!?]$/.test(echoed)) return `${echoed} - `;
+  return `${echoed.replace(/[.!?]+$/, '')} - `;
+}
+
+function pickBridge(input: {
+  assistantTexts: string[];
+  lastUser: string;
+  isOpeningContinuation: boolean;
+}): string {
+  // After the ElevenLabs first_message, the first brain turn should jump
+  // straight into substance — no bridge needed (greeting already happened).
+  if (input.isOpeningContinuation) return '';
+
+  const uses = countFillerUses(input.assistantTexts);
+  const lastKey = lastFillerKey(input.assistantTexts);
+  const roll = Math.random();
+
+  // ~40% echo, ~40% filler, ~20% silent (brain content arrives soon enough).
+  if (roll < 0.4) {
+    const echo = echoBridge(input.lastUser);
+    if (echo) return echo;
+  }
+  if (roll < 0.8) {
+    const candidates = BRIDGE_FILLERS.filter(
+      (f) => (uses.get(f.key) ?? 0) < 3 && f.key !== lastKey,
+    );
+    if (candidates.length > 0) {
+      return candidates[Math.floor(Math.random() * candidates.length)].text;
+    }
+  }
+  return '';
+}
+
+function assistantAlreadySaidBye(assistantTexts: string[]): boolean {
+  return assistantTexts.some((t) => BYE_RE.test(t));
+}
+
+function userSaidBye(lastUser: string): boolean {
+  return BYE_RE.test(lastUser);
 }
 
 export async function POST(request: Request) {
@@ -122,13 +205,15 @@ export async function POST(request: Request) {
       levers: spec.authorized_levers,
     }) +
     '\n\nVOICE MODE — live phone call:\n' +
-    '- LANGUAGE: US English only. Never Chinese, never any other language. If you catch yourself drifting, switch back to English immediately.\n' +
-    '- LENGTH: one or two short questions per turn. Do not ask about delivery, pickup, insurance, deposit, cleaning, and late fees in the same breath — pick the next missing piece and ask that.\n' +
-    '- NO FILLER OPENERS: never start with Got it / Right / Okay / Understood / Noted / Alright. Start with the substance.\n' +
-    '- Numbers slowly and clearly. Batch log_quote_line calls for one supplier utterance into one parallel tool batch.\n' +
-    '- When done: record_outcome, one short goodbye, stop. No more questions after goodbye.' +
+    '- LANGUAGE: US English only. Never Chinese or any other language.\n' +
+    '- OPENING: telephony may already have greeted and disclosed that you are an AI. Do not repeat the full intro — continue with the job specifics.\n' +
+    '- LENGTH: one or two short questions per turn. Prefer a follow-up turn over stacking topics.\n' +
+    '- CLARIFY: if the dispatcher is unclear, muffled, contradictory, or you are not sure what they meant, ask a short clarifying question. Never invent a number you did not hear.\n' +
+    '- BRIDGING: a short spoken bridge may already have been played before your reply arrives — do not start with the same filler again; go to substance.\n' +
+    '- CLOSE: after record_outcome, say goodbye ONCE. If the dispatcher has also said goodbye, hang up (end_call) — never say bye repeatedly.\n' +
+    '- Numbers slowly and clearly. Batch log_quote_line calls for one supplier utterance into one parallel tool batch.' +
     (alreadyEnded
-      ? '\n\nThe outcome for this call is already recorded. Say a short English goodbye now and do not call any more tools.'
+      ? '\n\nThe outcome is already recorded. If you have not said goodbye yet, say one short goodbye. If goodbye was already said, hang up immediately — say nothing else.'
       : '');
 
   const history = body.messages
@@ -139,14 +224,23 @@ export async function POST(request: Request) {
     }))
     .filter((m) => m.content.length > 0);
 
+  const assistantTexts = history.filter((m) => m.role === 'assistant').map((m) => m.content);
+  const lastUser = [...history].reverse().find((m) => m.role === 'user')?.content ?? '';
+  const byeAlready = assistantAlreadySaidBye(assistantTexts);
+  const mutualBye = byeAlready && userSaidBye(lastUser);
+  // First brain turn after the static first_message: few/no user turns yet, or
+  // only a short pickup like "hello" / "yeah".
+  const isOpeningContinuation =
+    history.filter((m) => m.role === 'user').length <= 1 &&
+    lastUser.length < 40 &&
+    !/\d|euro|price|rate|fee|available|lift/i.test(lastUser);
+
   type Item =
     | { role: 'user' | 'assistant'; content: string }
     | { type: 'function_call'; call_id: string; name: string; arguments: string }
     | { type: 'function_call_output'; call_id: string; output: string };
 
   const record = (r: ToolCallRecord) => newToolRecords.push(r);
-
-  // gpt-5.5 + low effort: sharp enough for negotiation, fast enough for phone.
   const turnModel = MODELS.voice;
 
   const extractText = (response: {
@@ -172,19 +266,17 @@ export async function POST(request: Request) {
   ): Promise<string> => {
     let spoken = text;
     if (!isEnglishSafe(spoken)) {
-      // Hard guard: never let CJK (or other script slips) reach TTS.
       try {
         const retry = await openai().responses.create({
           model: turnModel,
           instructions:
             systemPrompt +
-            '\n\nCRITICAL: your previous draft was not US English. Rewrite the SAME meaning in plain US English only. No Chinese characters. No filler openers. One or two short sentences.',
+            '\n\nCRITICAL: rewrite in plain US English only. No Chinese. No filler openers. Under 35 words.',
           input: [
             ...items,
             {
               role: 'user',
-              content:
-                'Rewrite your last reply in US English only. Keep it under 35 words. No filler.',
+              content: 'Rewrite your last reply in US English only. Keep it short.',
             },
           ],
           tool_choice: 'none',
@@ -196,19 +288,24 @@ export async function POST(request: Request) {
         spoken = '';
       }
       if (!spoken || !isEnglishSafe(spoken)) {
-        spoken = endedThisTurn
-          ? 'Thanks — goodbye.'
-          : 'Sorry, could you say that again?';
+        spoken = endedThisTurn ? 'Thanks — goodbye.' : 'Sorry, could you say that again?';
       }
     }
-    if (endedThisTurn && spoken && !/\b(bye|goodbye|talk soon|take care)\b/i.test(spoken)) {
-      spoken = `${spoken.replace(/\s*$/, '')} Bye.`;
+    if (endedThisTurn && !byeAlready) {
+      if (spoken && !BYE_RE.test(spoken)) spoken = `${spoken.replace(/\s*$/, '')} Bye.`;
+      if (!spoken) spoken = 'Thanks — goodbye.';
     }
-    if (endedThisTurn && !spoken) spoken = 'Thanks — goodbye.';
+    // Already said bye once — do not speak another farewell.
+    if (byeAlready && endedThisTurn) spoken = '';
     return spoken;
   };
 
-  const runBrain = async (): Promise<string> => {
+  const runBrain = async (): Promise<{ text: string; hangUp: boolean }> => {
+    // Mutual goodbye or outcome already closed with a prior bye → hang up now.
+    if (mutualBye || (alreadyEnded && byeAlready)) {
+      return { text: '', hangUp: true };
+    }
+
     let items: Item[] = history;
     let endedThisTurn = alreadyEnded;
     const maxHops = alreadyEnded ? 1 : 5;
@@ -225,7 +322,10 @@ export async function POST(request: Request) {
       });
       const functionCalls = response.output.filter((o) => o.type === 'function_call');
       if (functionCalls.length === 0) {
-        return finalizeSpoken(extractText(response), items, endedThisTurn);
+        const text = await finalizeSpoken(extractText(response), items, endedThisTurn);
+        const hangUp =
+          endedThisTurn || (BYE_RE.test(text) && userSaidBye(lastUser)) || (byeAlready && endedThisTurn);
+        return { text, hangUp };
       }
       const outputs: Item[] = [];
       for (const call of functionCalls) {
@@ -254,27 +354,30 @@ export async function POST(request: Request) {
       }
       items = [...items, ...outputs];
       if (endedThisTurn) {
+        if (byeAlready) return { text: '', hangUp: true };
         const close = await openai().responses.create({
           model: turnModel,
           instructions:
             systemPrompt +
-            '\n\nThe outcome is recorded. Speak one short US-English closing sentence that includes goodbye. No questions. No tools. No filler.',
+            '\n\nOutcome recorded. One short US-English goodbye only. No questions. No filler.',
           input: items,
           tool_choice: 'none',
           store: false,
           reasoning: { effort: 'low' },
         });
-        return finalizeSpoken(
+        const text = await finalizeSpoken(
           extractText(close) || 'Thanks — goodbye.',
           items,
           true,
         );
+        return { text, hangUp: true };
       }
     }
-    return '';
+    return { text: '', hangUp: false };
   };
 
   const persistTurn = async (finalText: string) => {
+    if (!finalText) return;
     const transcript: TranscriptTurn[] = history.map((m, i) => ({
       turn_index: i,
       role: m.role === 'assistant' ? 'buyer' : 'supplier',
@@ -298,11 +401,15 @@ export async function POST(request: Request) {
       .eq('id', callId);
   };
 
-  // No spoken filler ack — that was the "Right." / "Got it." spam. First SSE
-  // byte is role-only so ElevenLabs still starts the turn without dead air.
+  const bridge = pickBridge({
+    assistantTexts,
+    lastUser,
+    isOpeningContinuation,
+  });
   const requestStartedAt = Date.now();
   const encoder = new TextEncoder();
   const id = `chatcmpl-${callId.slice(0, 8)}-${Date.now()}`;
+
   const stream = new ReadableStream({
     async start(controller) {
       const chunk = (delta: object, finish: string | null = null) =>
@@ -317,29 +424,89 @@ export async function POST(request: Request) {
             })}\n\n`,
           ),
         );
+
+      const emitEndCall = (reason: string) => {
+        const callToolId = `call_end_${Date.now()}`;
+        chunk({
+          tool_calls: [
+            {
+              index: 0,
+              id: callToolId,
+              type: 'function',
+              function: { name: 'end_call', arguments: '' },
+            },
+          ],
+        });
+        chunk({
+          tool_calls: [
+            {
+              index: 0,
+              function: {
+                arguments: JSON.stringify({
+                  reason,
+                  message: '',
+                }),
+              },
+            },
+          ],
+        });
+        chunk({}, 'tool_calls');
+      };
+
       chunk({ role: 'assistant' });
+      // Bridge immediately so TTS starts while the brain is still thinking.
+      if (bridge) chunk({ content: bridge });
       const firstContentMs = Date.now() - requestStartedAt;
       const heartbeat = setInterval(() => chunk({}), 2500);
+
       let finalText = '';
+      let hangUp = false;
       try {
-        finalText = await runBrain();
+        const result = await runBrain();
+        finalText = result.text;
+        hangUp = result.hangUp;
       } catch (e) {
         console.error('voice brain failed:', e);
       } finally {
         clearInterval(heartbeat);
       }
-      if (!finalText) finalText = 'Sorry, could you repeat that?';
+
+      if (!finalText && !hangUp) finalText = 'Sorry, could you say that again?';
+
+      // Avoid repeating the bridge words at the start of the brain reply.
+      if (bridge && finalText) {
+        finalText = stripLeadingFiller(finalText);
+        // If the brain accidentally echoed the same bridge text, peel it.
+        if (finalText.toLowerCase().startsWith(bridge.trim().toLowerCase().slice(0, 8))) {
+          finalText = stripLeadingFiller(finalText);
+        }
+      }
+
       console.log(
-        `voice-turn call=${callId.slice(0, 8)} model=voice first_content_ms=${firstContentMs} brain_ms=${Date.now() - requestStartedAt}`,
+        `voice-turn call=${callId.slice(0, 8)} model=voice first_content_ms=${firstContentMs} brain_ms=${Date.now() - requestStartedAt} bridge=${bridge ? 'y' : 'n'} hangup=${hangUp}`,
       );
-      const parts = finalText.match(/[^.!?]+[.!?]*\s*/g) ?? [finalText];
-      for (const part of parts) chunk({ content: part });
-      chunk({}, 'stop');
+
+      if (finalText) {
+        const parts = finalText.match(/[^.!?]+[.!?]*\s*/g) ?? [finalText];
+        for (const part of parts) chunk({ content: part });
+      }
+
+      if (hangUp) {
+        emitEndCall(
+          alreadyEnded || mutualBye
+            ? 'Call complete — mutual goodbye'
+            : 'Quote outcome recorded',
+        );
+      } else {
+        chunk({}, 'stop');
+      }
+
       controller.enqueue(encoder.encode('data: [DONE]\n\n'));
       controller.close();
-      await persistTurn(finalText).catch((e) => console.error('persist failed:', e));
+      await persistTurn(bridge + finalText).catch((e) => console.error('persist failed:', e));
     },
   });
+
   return new Response(stream, {
     headers: {
       'Content-Type': 'text/event-stream',

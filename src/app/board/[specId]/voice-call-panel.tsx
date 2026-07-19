@@ -55,6 +55,9 @@ function VoiceCallInner({
   const callIdRef = useRef<string | null>(null);
   const conversationIdRef = useRef<string | null>(null);
   const finishedRef = useRef(false);
+  const agentByeRef = useRef(false);
+  const hangupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const endSessionRef = useRef<() => Promise<void>>(async () => {});
 
   useEffect(() => {
     if (phase !== 'live') return;
@@ -75,11 +78,37 @@ function VoiceCallInner({
       void finish();
     },
     onError: (message: string) => setError(message || 'Voice session error'),
+    onMessage: ({ message, source }: { message: string; source: string }) => {
+      // Backup hangup: once goodbye has been said, end the session so we
+      // never loop five farewells if end_call did not fire.
+      if (source === 'ai' && /\b(bye|goodbye|talk soon)\b/i.test(message)) {
+        agentByeRef.current = true;
+        if (hangupTimerRef.current) clearTimeout(hangupTimerRef.current);
+        hangupTimerRef.current = setTimeout(() => {
+          void endSessionRef.current();
+        }, 2200);
+      }
+      if (
+        source === 'user' &&
+        agentByeRef.current &&
+        /\b(bye|goodbye|talk soon|thanks)\b/i.test(message)
+      ) {
+        if (hangupTimerRef.current) clearTimeout(hangupTimerRef.current);
+        void endSessionRef.current();
+      }
+    },
   });
+
+  useEffect(() => {
+    endSessionRef.current = async () => {
+      await conversation.endSession();
+    };
+  }, [conversation]);
 
   const finish = useCallback(async () => {
     if (finishedRef.current) return;
     finishedRef.current = true;
+    if (hangupTimerRef.current) clearTimeout(hangupTimerRef.current);
     setPhase('finishing');
     const callId = callIdRef.current;
     const conversationId = conversationIdRef.current;
@@ -97,6 +126,7 @@ function VoiceCallInner({
   const start = useCallback(async () => {
     setError(null);
     finishedRef.current = false;
+    agentByeRef.current = false;
     setElapsed(0);
     setPhase('starting');
     try {
