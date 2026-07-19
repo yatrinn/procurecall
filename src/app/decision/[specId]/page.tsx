@@ -100,7 +100,7 @@ export default async function DecisionPage({ params }: { params: Promise<{ specI
   return (
     <Shell>
       <div className="flex flex-wrap items-baseline gap-x-6 gap-y-2">
-        <h1 className="display text-3xl">Decision room</h1>
+        <h1 className="display text-2xl sm:text-3xl">Decision room</h1>
         {spec.spec_fingerprint ? (
           <span className="figure text-sm text-verified" title="Every quote below carries this exact fingerprint">
             {spec.spec_fingerprint.slice(0, 12)}
@@ -123,12 +123,14 @@ export default async function DecisionPage({ params }: { params: Promise<{ specI
           {/* Recommendation with evidence rail */}
           {recommendedEntry && recommendedQuote ? (
             <section className="mt-10 max-w-3xl">
-              <p className="text-sm text-steel">Recommended — deterministic ranking, engine {recommendation.engine_version}</p>
-              <div className="mt-2 flex flex-wrap items-baseline gap-x-6 gap-y-2">
-                <h2 className="display text-2xl">{recommendedEntry.supplier_name}</h2>
+              <p className="text-sm text-steel">
+                Recommended — ranked by engine rules ({recommendation.engine_version})
+              </p>
+              <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-2 sm:gap-x-6">
+                <h2 className="display text-xl sm:text-2xl">{recommendedEntry.supplier_name}</h2>
                 <a
                   href={`/board/${specId}#call=${recommendedQuote.call_id}&turn=${lastTurnIndex(sessions, recommendedQuote.call_id)}`}
-                  className="figure text-2xl text-verified underline-offset-4 hover:underline"
+                  className="figure text-xl text-verified underline-offset-4 hover:underline sm:text-2xl"
                   title="Opens the exact moment this total was confirmed"
                 >
                   {eur(recommendedQuote.total_after_negotiation_cents, currency)} net

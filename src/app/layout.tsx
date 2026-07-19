@@ -20,7 +20,8 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: 'ProcureCall',
-  description: 'One brief. Every supplier. The best verified deal.',
+  description:
+    'AI buyer for equipment rental: one brief, suppliers called, every fee pinned to the recording.',
 };
 
 export default function RootLayout({

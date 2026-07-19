@@ -227,21 +227,21 @@ export function BoardClient({
 
   return (
     <div>
-      <div className="flex items-center gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
         {!hasSessions ? (
           <>
             <PrimaryButton onClick={startCalls} disabled={starting || !state}>
               {starting ? 'Calling the market…' : `Call ${supplierIds.length} suppliers`}
             </PrimaryButton>
             <span className="text-sm text-steel">
-              Text-tier negotiation — the same brain and tools as the voice tier.
+              Text negotiation — same brain and tools as voice.
             </span>
           </>
         ) : null}
         {allDone ? (
           <Link
             href={`/decision/${specId}`}
-            className="rounded-sm bg-ink px-4 py-2 text-sm font-medium text-paper hover:bg-black"
+            className="inline-block rounded-sm bg-ink px-4 py-2 text-center text-sm font-medium text-paper hover:bg-black"
           >
             Open decision room
           </Link>
@@ -249,7 +249,7 @@ export function BoardClient({
         {anyRunning ? (
           <span className="flex items-center gap-2 text-sm text-steel">
             <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-hivis" aria-hidden />
-            Calls in progress — fees pin to the tapes as they are spoken.
+            Calls in progress — fees pin as they are spoken.
           </span>
         ) : null}
       </div>

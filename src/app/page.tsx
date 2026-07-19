@@ -25,91 +25,93 @@ export default async function Home() {
   return (
     <Shell>
       <div className="max-w-3xl">
-        <p className="text-sm text-steel">Buyer-side procurement agent</p>
-        <h1 className="display mt-3 text-5xl">
-          One brief. Every supplier.
+        <p className="text-sm text-steel">AI buyer for equipment rental</p>
+        <h1 className="display mt-3 text-3xl sm:text-4xl md:text-5xl">
+          One brief.
           <br />
-          The best verified deal.
+          Three suppliers called.
+          <br />
+          Every fee on the tape.
         </h1>
-        <p className="mt-6 max-w-xl text-steel">
-          Rental prices are not hidden. They are simply never written down — they exist only
-          while someone is speaking them. ProcureCall takes your brief once, calls the market,
-          extracts every fee, and pins each number to the second of the recording where it was
-          said.
+        <p className="mt-5 max-w-xl text-base text-steel sm:text-[15px]">
+          You describe the job once. ProcureCall calls the suppliers, pulls an itemized quote
+          out of each conversation, and ranks the real totals — not the headline day rate.
+          Click any number and you land on the second it was said.
         </p>
-        <div className="mt-8 flex flex-wrap gap-3">
+        <div className="mt-7 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-3">
           <Link
             href="/demo"
-            className="rounded-sm bg-ink px-4 py-2 text-sm font-medium text-paper hover:bg-black"
+            className="rounded-sm bg-ink px-4 py-2.5 text-center text-sm font-medium text-paper hover:bg-black"
           >
-            See the demo
+            Watch a recorded run
           </Link>
           <Link
             href="/request"
-            className="rounded-sm border border-line bg-paper px-4 py-2 text-sm text-ink hover:border-steel"
+            className="rounded-sm border border-line bg-paper px-4 py-2.5 text-center text-sm text-ink hover:border-steel"
           >
-            Start a request
+            Start your own request
           </Link>
         </div>
+        <p className="mt-3 text-xs text-steel">
+          No login. Demo market is simulated — nobody&apos;s real business gets a call.
+        </p>
       </div>
 
-      <div className="mt-14 grid max-w-3xl grid-cols-1 gap-x-12 gap-y-6 sm:grid-cols-3">
+      <div className="mt-12 grid max-w-3xl grid-cols-1 gap-8 sm:mt-14 sm:grid-cols-3 sm:gap-x-10 sm:gap-y-6">
         <div>
-          <p className="figure text-xs text-steel">01</p>
-          <h2 className="mt-1 font-medium">Brief</h2>
+          <p className="figure text-xs text-steel">1</p>
+          <h2 className="mt-1 font-medium">Write the brief</h2>
           <p className="mt-1 text-sm text-steel">
-            One structured job spec, by voice interview or document. You confirm it; it freezes
-            with a fingerprint.
+            Type it, upload a PDF, or do a short voice interview. You confirm once — then the
+            request is locked.
           </p>
         </div>
         <div>
-          <p className="figure text-xs text-steel">02</p>
-          <h2 className="mt-1 font-medium">Calls</h2>
+          <p className="figure text-xs text-steel">2</p>
+          <h2 className="mt-1 font-medium">Watch the calls</h2>
           <p className="mt-1 text-sm text-steel">
-            The agent describes the job identically to every supplier and extracts an itemized
-            quote from each call.
+            Same job, three suppliers. Delivery, pickup, insurance, extras — each fee sticks to
+            the moment it was spoken.
           </p>
         </div>
         <div>
-          <p className="figure text-xs text-steel">03</p>
-          <h2 className="mt-1 font-medium">Decision</h2>
+          <p className="figure text-xs text-steel">3</p>
+          <h2 className="mt-1 font-medium">Pick with evidence</h2>
           <p className="mt-1 text-sm text-steel">
-            A deterministic engine ranks the real totals. Every number links to the moment it
-            was spoken.
+            The ranking is engine math, not a model vibe. Deposits count as cash, not cost.
+            Suspicious lowballs get flagged.
           </p>
         </div>
       </div>
 
-      <div className="mt-14 border-t border-line pt-6">
-        <h2 className="text-sm font-medium">Current market configuration</h2>
-        <dl className="mt-3 grid max-w-3xl grid-cols-1 gap-x-12 gap-y-4 text-sm sm:grid-cols-3">
+      <div className="mt-12 border-t border-line pt-6 sm:mt-14">
+        <h2 className="text-sm font-medium">What&apos;s configured right now</h2>
+        <dl className="mt-3 grid max-w-3xl grid-cols-1 gap-4 text-sm sm:grid-cols-3 sm:gap-x-10">
           <div>
-            <dt className="text-steel">Vertical</dt>
+            <dt className="text-steel">Market</dt>
             <dd className="mt-0.5">{vertical.label}</dd>
           </div>
           <div>
-            <dt className="text-steel">Suppliers seeded</dt>
+            <dt className="text-steel">Suppliers</dt>
             <dd className="figure mt-0.5">
               {dbReachable ? supplierCount : '—'}
               <span className="ml-2 font-sans text-steel">simulated, labeled</span>
             </dd>
           </div>
           <div>
-            <dt className="text-steel">Benchmark median (machine-only day rate)</dt>
-            <dd className="figure mt-0.5">
-              {vertical.benchmark.medianDailyRateNet?.toFixed(2)} EUR/day net
-              <span className="ml-2 font-sans text-steel">
-                from {vertical.benchmark.references.length} sourced public rate cards — quotes on
-                the board are 5-day guaranteed totals incl. transport and mandatory liability;
-                the engine normalizes each back to a machine-only day rate before comparing
+            <dt className="text-steel">Public benchmark</dt>
+            <dd className="mt-0.5">
+              <span className="figure">
+                {vertical.benchmark.medianDailyRateNet?.toFixed(0)} EUR
               </span>
+              <span className="text-steel"> / day machine-only (from{' '}
+              {vertical.benchmark.references.length} public rate cards)</span>
             </dd>
           </div>
         </dl>
         {!dbReachable ? (
           <p className="mt-4 text-sm text-flag">
-            The database is not reachable right now. The page still renders; data-backed
-            sections are marked with a dash.
+            Database unreachable right now — data sections show a dash.
           </p>
         ) : null}
       </div>

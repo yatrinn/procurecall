@@ -48,7 +48,7 @@ export default async function BoardPage({
   return (
     <Shell>
       <div className="flex flex-wrap items-baseline gap-x-6 gap-y-2">
-        <h1 className="display text-3xl">Negotiation board</h1>
+        <h1 className="display text-2xl sm:text-3xl">Negotiation board</h1>
         <span className="figure text-sm text-verified" title={spec.spec_fingerprint}>
           {spec.spec_fingerprint.slice(0, 12)}
         </span>

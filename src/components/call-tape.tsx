@@ -110,9 +110,13 @@ export function CallTape({
   const LANE_TOP: Record<number, string> = { 0: '0px', 1: '16px', 2: '58px', 3: '74px' };
 
   return (
-    <div>
-      {/* The tape itself */}
-      <div className="relative mt-6 h-[92px]" role="group" aria-label={`Call tape ${callId}`}>
+    <div className="min-w-0">
+      {/* The tape itself — scroll horizontally on narrow screens instead of blowing the page width */}
+      <div
+        className="relative mt-6 h-[92px] min-w-[280px] overflow-x-auto sm:overflow-visible"
+        role="group"
+        aria-label={`Call tape ${callId}`}
+      >
         {/* spine */}
         <div className="absolute left-0 right-0 top-[44px] h-px bg-line" aria-hidden />
         {/* replay playhead */}

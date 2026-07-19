@@ -112,74 +112,79 @@ export default async function DemoPage() {
     >
       <div className="max-w-3xl">
         <p className="text-sm text-steel">Public demo — no login</p>
-        <h1 className="display mt-2 text-4xl">
-          One brief. Three dispatchers.
+        <h1 className="display mt-2 text-3xl sm:text-4xl">
+          Same job.
           <br />
-          Every number traceable.
+          Three different calls.
         </h1>
-        <p className="mt-4 max-w-2xl text-sm text-steel">
-          The request: {vertical.demoRequestSummary.toLowerCase()}. Three simulated suppliers with
-          genuinely different commercial behavior take the same call. Fees pin to each tape at
-          the moment they are spoken; a competing figure may only be cited after the server
-          verified it — that is the deep petrol color. Deterministic engine math, deterministic
-          ranking; the model explains, it never chooses.
+        <p className="mt-4 max-w-2xl text-base text-steel sm:text-sm">
+          Brief: {vertical.demoRequestSummary.toLowerCase()}. Hit play — you&apos;ll hear the
+          recorded negotiations and see each fee land on the tape when it was spoken. Green marks
+          only show up when a competing price was checked server-side first. Then open the
+          decision room for the ranked totals.
         </p>
+        <ol className="mt-5 max-w-xl list-decimal space-y-1 pl-5 text-sm text-steel">
+          <li>Play the recorded run below</li>
+          <li>Open the decision room and click a fee to jump back to that moment</li>
+          <li>Optional: start a live run (rate-limited) or write your own request</li>
+        </ol>
         {fingerprint ? (
-          <p className="mt-3 text-sm">
-            <span className="text-steel">Request fingerprint </span>
+          <p className="mt-4 text-sm">
+            <span className="text-steel">Locked request ID </span>
             <span className="figure text-verified">{fingerprint.slice(0, 12)}</span>
-            <span className="text-steel"> — identical on every call below.</span>
+            <span className="text-steel"> — same on every call in this run.</span>
           </p>
         ) : null}
       </div>
 
       {replaySessions.length > 0 ? (
-        <section className="mt-12">
-          <h2 className="text-sm font-medium">The recorded run</h2>
-          <div className="mt-4">
+        <section className="mt-10 sm:mt-12">
+          <h2 className="text-sm font-medium">Recorded run</h2>
+          <div className="mt-4 min-w-0">
             <ReplayClient sessions={replaySessions} />
           </div>
           {decisionHref ? (
             <p className="mt-6 text-sm">
               <Link href={decisionHref} className="underline underline-offset-4 hover:text-ink">
-                Open the decision room for this run
+                Open the decision room
               </Link>
-              <span className="text-steel"> — ranked totals, evidence rail, reason codes.</span>
+              <span className="text-steel"> — who won, why, and the evidence behind each number.</span>
             </p>
           ) : null}
         </section>
       ) : (
-        <section className="mt-12 max-w-xl border border-line bg-paper p-4">
-          <h2 className="text-sm font-medium">The demo is not seeded yet</h2>
+        <section className="mt-10 max-w-xl border border-line bg-paper p-4 sm:mt-12">
+          <h2 className="text-sm font-medium">Demo not seeded yet</h2>
           <p className="mt-1 text-sm text-steel">
-            The recorded run has not been published. You can still start a request from scratch
-            under “New request”.
+            No recorded run published. You can still start from scratch under New request.
           </p>
         </section>
       )}
 
-      <section className="mt-14 border-t border-line pt-6">
+      <section className="mt-12 border-t border-line pt-6 sm:mt-14">
         <h2 className="text-sm font-medium">Run it live</h2>
+        <p className="mt-1 max-w-xl text-sm text-steel">
+          Spins up a fresh copy of the same brief and calls the market for real. Limited per IP
+          so the demo stays usable for everyone.
+        </p>
         <div className="mt-3">
           <RunLive />
         </div>
       </section>
 
-      <section className="mt-14 border-t border-line pt-6 text-xs text-steel">
-        <h2 className="text-sm font-medium text-ink">What is real here</h2>
-        <ul className="mt-2 max-w-2xl list-disc space-y-1 pl-4">
+      <section className="mt-12 border-t border-line pt-6 text-xs text-steel sm:mt-14">
+        <h2 className="text-sm font-medium text-ink">What&apos;s real vs simulated</h2>
+        <ul className="mt-2 max-w-2xl list-disc space-y-1.5 pl-4">
           <li>
-            The three suppliers are simulated and labeled as such. Their price sheets are
-            grounded in sourced public rate cards; their concessions come from private policy
-            ladders, never from a script.
+            Suppliers are simulated and labeled. Prices are grounded in public rate cards; how
+            each dispatcher behaves is private policy, not a fixed script.
           </li>
           <li>
-            The replay is a faithful re-render of a recorded run — nothing in it is generated at
-            view time. Live runs are genuinely live and can end differently.
+            The replay is a recorded run re-shown as-is. A live run can end differently.
           </li>
           <li>
-            The buyer agent can only cite competing figures returned by a server-side
-            verification tool. Unverified numbers do not reach the model.
+            The buyer can only cite a competing quote after a server check. Made-up leverage
+            never reaches the model.
           </li>
         </ul>
       </section>

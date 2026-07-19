@@ -36,12 +36,17 @@
   --radius-xl: 4px;
 }
 
+html {
+  overflow-x: hidden;
+}
+
 body {
   background: var(--ground);
   color: var(--ink);
   font-family: var(--font-instrument), system-ui, sans-serif;
   font-size: 15px;
   line-height: 1.5;
+  overflow-x: hidden;
 }
 
 /* Display statements: wide industrial grotesque, very few, very large. */
