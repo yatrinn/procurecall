@@ -58,8 +58,11 @@ function VoiceCallInner({
 
   useEffect(() => {
     if (phase !== 'live') return;
-    setElapsed(0);
-    const t = setInterval(() => setElapsed((s) => s + 1), 1000);
+    const startedAt = Date.now();
+    const t = setInterval(
+      () => setElapsed(Math.round((Date.now() - startedAt) / 1000)),
+      1000,
+    );
     return () => clearInterval(t);
   }, [phase]);
 
@@ -94,6 +97,7 @@ function VoiceCallInner({
   const start = useCallback(async () => {
     setError(null);
     finishedRef.current = false;
+    setElapsed(0);
     setPhase('starting');
     try {
       await navigator.mediaDevices.getUserMedia({ audio: true });
