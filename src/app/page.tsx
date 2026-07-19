@@ -78,8 +78,8 @@ export default async function Home() {
           <p className="figure text-xs text-steel">3</p>
           <h2 className="mt-1 font-medium">Pick with evidence</h2>
           <p className="mt-1 text-sm text-steel">
-            The ranking is engine math, not a model vibe. Deposits count as cash, not cost.
-            Suspicious lowballs get flagged.
+            Totals are calculated from the fees on the tape — not guessed by the model.
+            Deposits count as cash, not cost. Oddly cheap quotes get flagged.
           </p>
         </div>
       </div>

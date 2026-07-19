@@ -118,10 +118,9 @@ export default async function DemoPage() {
           Three different calls.
         </h1>
         <p className="mt-4 max-w-2xl text-base text-steel sm:text-sm">
-          Brief: {vertical.demoRequestSummary.toLowerCase()}. Hit play — you&apos;ll hear the
-          recorded negotiations and see each fee land on the tape when it was spoken. Green marks
-          only show up when a competing price was checked server-side first. Then open the
-          decision room for the ranked totals.
+          Brief: {vertical.demoRequestSummary.toLowerCase()}. Hit play to hear the three
+          negotiations and watch each fee appear on the tape when it was said. Then open the
+          decision room — ranked totals, with a jump back to the exact moment for every number.
         </p>
         <ol className="mt-5 max-w-xl list-decimal space-y-1 pl-5 text-sm text-steel">
           <li>Play the recorded run below</li>
@@ -183,8 +182,7 @@ export default async function DemoPage() {
             The replay is a recorded run re-shown as-is. A live run can end differently.
           </li>
           <li>
-            The buyer can only cite a competing quote after a server check. Made-up leverage
-            never reaches the model.
+            A competing price can only be cited after it was verified. No invented leverage.
           </li>
         </ul>
       </section>
