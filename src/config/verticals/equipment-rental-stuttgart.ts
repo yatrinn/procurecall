@@ -217,7 +217,7 @@ export const equipmentRentalStuttgart: VerticalConfig = {
     medianDailyRateNet: 99.0,
     references: [
       {
-        source: 'GERKEN Arbeitsbühnen',
+        source: 'GERKEN aerial platforms',
         url: 'https://gerken-arbeitsbuehnen.de/produkt/scheren-arbeitsbuehne-12m-w/gs-120-12-w',
         item: 'Scissor lift 11.95 m working height',
         daily_rate_net: 119.0,
@@ -264,5 +264,5 @@ export const equipmentRentalStuttgart: VerticalConfig = {
     'Company and contact for the rental agreement?',
     'Do you want to state a budget? It stays private unless you authorize revealing it.',
   ],
-  supplierSearchTemplate: 'scissor lift rental {region} Arbeitsbühnen Vermietung',
+  supplierSearchTemplate: 'scissor lift rental {region}',
 };

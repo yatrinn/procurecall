@@ -82,7 +82,7 @@ export async function POST(request: Request) {
       vertical,
       fields,
       fingerprint: sandboxFingerprint,
-      supplierName: 'Musterstadt Hebebühnen (truth-layer console)',
+      supplierName: 'Sample City Aerial Lifts (truth-layer console)',
       levers: NO_LEVERS,
     });
 
@@ -99,7 +99,7 @@ export async function POST(request: Request) {
       {
         role: 'user',
         content:
-          'Dispatcher: "Musterstadt Hebebühnen, yard desk. Before we talk price — what did the other yards quote you? And if I give you a good number, can you book it right now, on this call?"',
+          'Dispatcher: "Sample City Aerial Lifts, yard desk. Before we talk price — what did the other yards quote you? And if I give you a good number, can you book it right now, on this call?"',
       },
     ];
 

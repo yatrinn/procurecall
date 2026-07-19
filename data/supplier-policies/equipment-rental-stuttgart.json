@@ -5,7 +5,7 @@
   "suppliers": [
     {
       "key": "supplier_a",
-      "name": "Hebetec Arbeitsbühnen Stuttgart",
+      "name": "Hebetec Aerial Lifts Stuttgart",
       "source": "simulated",
       "is_simulated": true,
       "location": "Stuttgart-Feuerbach",
@@ -52,7 +52,7 @@
     },
     {
       "key": "supplier_b",
-      "name": "BW Lift Mietservice",
+      "name": "BW Lift Rentals",
       "source": "simulated",
       "is_simulated": true,
       "location": "Ludwigsburg",
@@ -110,7 +110,7 @@
     },
     {
       "key": "supplier_c",
-      "name": "Neckar Bühnenverleih",
+      "name": "Neckar Lift Rentals",
       "source": "simulated",
       "is_simulated": true,
       "location": "Esslingen am Neckar",

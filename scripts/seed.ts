@@ -68,7 +68,24 @@ async function main() {
   console.log('Seed complete.');
 }
 
+/** Old German-word display names → US-English labels (keeps supplier IDs stable). */
+const SUPPLIER_RENAMES: Record<string, string> = {
+  'Hebetec Arbeitsbühnen Stuttgart': 'Hebetec Aerial Lifts Stuttgart',
+  'BW Lift Mietservice': 'BW Lift Rentals',
+  'Neckar Bühnenverleih': 'Neckar Lift Rentals',
+};
+
 async function seedSuppliers(fixture: PolicyFixture) {
+  for (const [from, to] of Object.entries(SUPPLIER_RENAMES)) {
+    if (!fixture.suppliers.some((s) => s.name === to)) continue;
+    const { error } = await supabase
+      .from('suppliers')
+      .update({ name: to })
+      .eq('name', from)
+      .eq('vertical_slug', fixture.vertical_slug);
+    if (error) throw new Error(`supplier rename failed (${from}): ${error.message}`);
+  }
+
   for (const s of fixture.suppliers) {
     const { data: existing, error: selErr } = await supabase
       .from('suppliers')
@@ -84,6 +101,7 @@ async function seedSuppliers(fixture: PolicyFixture) {
       const { error } = await supabase
         .from('suppliers')
         .update({
+          name: s.name,
           source: s.source,
           is_simulated: s.is_simulated,
           location: s.location,

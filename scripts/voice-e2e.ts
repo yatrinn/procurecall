@@ -192,7 +192,7 @@ async function main() {
         // Phone reality: the CALLED party answers first. The buyer agent has
         // no first_message by design — it waits for the dispatcher's pickup.
         console.log('DISPATCHER (tts): yard pickup line');
-        void sendAudio('Hebetec Arbeitsbühnen Stuttgart, hello? Who am I speaking with?');
+        void sendAudio('Hebetec Aerial Lifts Stuttgart, hello? Who am I speaking with?');
       }
       if (event.type === 'ping') {
         ws.send(JSON.stringify({ type: 'pong', event_id: event.ping_event?.event_id }));

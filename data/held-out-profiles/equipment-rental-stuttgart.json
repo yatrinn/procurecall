@@ -4,7 +4,7 @@
   "profiles": [
     {
       "key": "capacity_constrained",
-      "name": "HO Süd Hebetechnik",
+      "name": "HO South Lift Tech",
       "behavior_profile": "capacity_constrained",
       "style_notes": "Only one 12 m electric unit left and it is reserved until Tuesday. Offers Wednesday delivery or a 10 m unit today. Firm but helpful; will quote precisely if pressed.",
       "price_sheet": { "day_rate_cents": 11000, "week_rate_5d_cents": 50000, "delivery_cents": 10000, "pickup_cents": 10000, "liability_reduction_per_day_cents": 1300, "liability_reduction_mandatory": true, "deposit_cents": 20000, "early_delivery_before_7_surcharge_cents": 3000, "electric_12m_available": false, "available_from": "2026-07-29" },
@@ -14,7 +14,7 @@
     },
     {
       "key": "substitute_seller",
-      "name": "HO Rampe & Bühne",
+      "name": "HO Ramp & Lift",
       "behavior_profile": "substitute_seller",
       "style_notes": "Always steers to what is on the yard: a 13.8 m diesel boom lift 'much better for outdoor'. Quotes the substitute readily, the requested machine reluctantly with a longer lead time.",
       "price_sheet": { "day_rate_cents": 12500, "week_rate_5d_cents": 56000, "delivery_cents": 9500, "pickup_cents": 9500, "liability_reduction_per_day_cents": 1500, "liability_reduction_mandatory": true, "deposit_cents": 0, "early_delivery_before_7_surcharge_cents": 5000, "electric_12m_available": true, "available_from": "immediate" },
@@ -24,7 +24,7 @@
     },
     {
       "key": "callback_only",
-      "name": "HO Kran Meyer",
+      "name": "HO Crane Meyer",
       "behavior_profile": "callback_only",
       "style_notes": "Office worker without pricing authority. Cannot give numbers; the boss quotes personally and calls back. Can commit to a concrete callback window if asked firmly.",
       "price_sheet": { "note": "no numbers over the phone" },
@@ -34,7 +34,7 @@
     },
     {
       "key": "relationship_driven",
-      "name": "HO Partner Bühnen",
+      "name": "HO Partner Lifts",
       "behavior_profile": "relationship_driven",
       "style_notes": "Warm, chatty, wants the long-term account. Offers a 'first-order discount' readily but inflates delivery. Responds to repeat-business talk (only if the buyer actually has that lever).",
       "price_sheet": { "day_rate_cents": 10500, "week_rate_5d_cents": 48000, "delivery_cents": 17500, "pickup_cents": 17500, "liability_reduction_per_day_cents": 1200, "liability_reduction_mandatory": true, "deposit_cents": 10000, "early_delivery_before_7_surcharge_cents": 0, "electric_12m_available": true, "available_from": "immediate", "first_order_discount_cents": 5000 },
@@ -44,7 +44,7 @@
     },
     {
       "key": "inflexible",
-      "name": "HO Beton & Bühne",
+      "name": "HO Concrete & Lift",
       "behavior_profile": "inflexible",
       "style_notes": "List price is list price. Polite, complete, zero movement regardless of leverage. Never rude, never budges.",
       "price_sheet": { "day_rate_cents": 12000, "week_rate_5d_cents": 57500, "delivery_cents": 11000, "pickup_cents": 11000, "liability_reduction_per_day_cents": 1400, "liability_reduction_mandatory": true, "deposit_cents": 30000, "early_delivery_before_7_surcharge_cents": 4000, "electric_12m_available": true, "available_from": "immediate" },
@@ -54,7 +54,7 @@
     },
     {
       "key": "upseller",
-      "name": "HO Alles Dabei Vermietung",
+      "name": "HO All-In Rentals",
       "behavior_profile": "upseller",
       "style_notes": "Pushes operator service, weekend package, premium insurance, site survey. Base machine is fine and cheap; every answer comes with an add-on pitch.",
       "price_sheet": { "day_rate_cents": 9000, "week_rate_5d_cents": 42500, "delivery_cents": 9000, "pickup_cents": 9000, "liability_reduction_per_day_cents": 1100, "liability_reduction_mandatory": true, "deposit_cents": 0, "early_delivery_before_7_surcharge_cents": 3500, "operator_per_day_cents": 38000, "weekend_package_cents": 15000, "premium_insurance_per_day_cents": 2500, "electric_12m_available": true, "available_from": "immediate" },
@@ -64,7 +64,7 @@
     },
     {
       "key": "incomplete_quoter",
-      "name": "HO Schnellverleih",
+      "name": "HO Quick Rentals",
       "behavior_profile": "incomplete_quoter",
       "style_notes": "Gives the rental rate instantly and dodges everything else ('depends', 'we sort that on delivery'). Never volunteers delivery, insurance, or deposit; answers only after the third concrete ask.",
       "price_sheet": { "day_rate_cents": 8500, "week_rate_5d_cents": 40000, "delivery_cents": 14000, "pickup_cents": 14000, "liability_reduction_per_day_cents": 1600, "liability_reduction_mandatory": true, "deposit_cents": 40000, "early_delivery_before_7_surcharge_cents": 5500, "electric_12m_available": true, "available_from": "immediate" },
@@ -74,7 +74,7 @@
     },
     {
       "key": "expired_availability",
-      "name": "HO Termin Verleih",
+      "name": "HO Schedule Rentals",
       "behavior_profile": "expired_availability",
       "style_notes": "Quotes cleanly but the unit frees up only after the requested window; offers dates two days late as if equivalent and only admits the mismatch when the dates are read back.",
       "price_sheet": { "day_rate_cents": 9800, "week_rate_5d_cents": 46000, "delivery_cents": 10500, "pickup_cents": 10500, "liability_reduction_per_day_cents": 1250, "liability_reduction_mandatory": true, "deposit_cents": 15000, "early_delivery_before_7_surcharge_cents": 2500, "electric_12m_available": true, "available_from": "2026-07-29" },
