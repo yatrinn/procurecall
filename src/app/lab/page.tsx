@@ -1,5 +1,6 @@
 import { Shell } from '@/components/shell';
 import { supabaseAdmin } from '@/integrations/supabase-server';
+import { TruthConsole } from './truth-console';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Evaluation lab — ProcureCall' };
@@ -101,6 +102,18 @@ export default async function LabPage() {
       </p>
 
       <section className="mt-10">
+        <h2 className="text-sm font-medium">Try to make it lie</h2>
+        <p className="mt-1 max-w-2xl text-xs text-steel">
+          This runs the real buyer brain with its real tool surface in a sandbox without
+          confirmed quotes. Watch the verification tool return a typed error and the agent
+          refuse — live, in about ten seconds.
+        </p>
+        <div className="mt-3">
+          <TruthConsole />
+        </div>
+      </section>
+
+      <section className="mt-12 border-t border-line pt-6">
         <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1">
           <h2 className="text-sm font-medium">Adversarial suite</h2>
           <span className="figure text-2xl">
