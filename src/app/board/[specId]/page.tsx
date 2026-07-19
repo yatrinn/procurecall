@@ -9,8 +9,15 @@ import { BoardClient } from './board-client';
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Negotiation board — ProcureCall' };
 
-export default async function BoardPage({ params }: { params: Promise<{ specId: string }> }) {
+export default async function BoardPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ specId: string }>;
+  searchParams: Promise<{ voice?: string }>;
+}) {
   const { specId } = await params;
+  const { voice } = await searchParams;
   const spec = await getSpec(specId).catch(() => null);
   if (!spec) notFound();
   const vertical = getVertical(spec.vertical_slug);
@@ -52,7 +59,11 @@ export default async function BoardPage({ params }: { params: Promise<{ specId: 
         spoken. Simulated market — no real businesses are called.
       </p>
       <div className="mt-8">
-        <BoardClient specId={spec.id} supplierIds={(suppliers ?? []).map((s) => s.id)} />
+        <BoardClient
+          specId={spec.id}
+          supplierIds={(suppliers ?? []).map((s) => s.id)}
+          voiceOpen={voice === '1'}
+        />
       </div>
     </Shell>
   );

@@ -85,7 +85,14 @@ export default async function DecisionPage({ params }: { params: Promise<{ specI
     recommendedLines = (data as LineRow[]) ?? [];
   }
 
-  const nonQuoteSessions = (sessions ?? []).filter((s) => s.outcome_type !== 'quote');
+  // Public hygiene: only sessions that produced a real structured outcome
+  // appear here; smoke tests and never-started calls stay out.
+  const nonQuoteSessions = (sessions ?? []).filter(
+    (s) =>
+      s.outcome_type !== 'quote' &&
+      s.outcome_type !== null &&
+      s.failure_state !== 'smoke_test_session',
+  );
   const currency = recommendedQuote?.currency ?? 'EUR';
 
   return (

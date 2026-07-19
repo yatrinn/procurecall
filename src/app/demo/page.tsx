@@ -37,12 +37,12 @@ export default async function DemoPage() {
         supabase
           .from('call_sessions')
           .select(
-            'id, supplier_id, transcript, tool_calls, friction_events, disclosure_event, outcome, outcome_type',
+            'id, supplier_id, transcript, tool_calls, friction_events, disclosure_event, outcome, outcome_type, recording_url',
           )
           .in('id', callIds),
         supabase
           .from('quotes')
-          .select('call_id, total_before_negotiation_cents, total_after_negotiation_cents')
+          .select('call_id, total_before_negotiation_cents, total_after_negotiation_cents, currency')
           .in('call_id', callIds),
         supabase
           .from('negotiation_events')
@@ -57,31 +57,49 @@ export default async function DemoPage() {
     fingerprint = spec?.spec_fingerprint ?? null;
     decisionHref = `/decision/${specId}`;
 
-    replaySessions = callIds
-      .map((callId) => {
-        const session = sessions?.find((s) => s.id === callId);
-        if (!session) return null;
-        const supplier = suppliers?.find((s) => s.id === session.supplier_id);
-        const behavior =
-          policies?.find((p) => p.supplier_id === session.supplier_id)?.behavior_profile ?? '';
-        const quote = quotes?.find((q) => q.call_id === callId);
-        const transcript = session.transcript as TapeTurn[];
-        const lastTurn = transcript[transcript.length - 1];
-        const outcome = session.outcome as { summary?: string } | null;
-        return {
-          id: session.id,
-          supplier_name: supplier?.name ?? 'Supplier',
-          supplier_location: supplier?.location ?? null,
-          behavior_label: BEHAVIOR_LABELS[behavior] ?? behavior,
-          turns: transcript,
-          pins: derivePins(session as unknown as PinSourceSession, (events ?? []) as PinSourceEvent[]),
-          duration_ms: (lastTurn?.at_ms ?? 0) + 4000,
-          outcome_line: outcome?.summary ?? '',
-          quote_before_cents: quote?.total_before_negotiation_cents ?? null,
-          quote_after_cents: quote?.total_after_negotiation_cents ?? null,
-        } satisfies ReplaySession;
-      })
-      .filter((x): x is ReplaySession => x !== null);
+    replaySessions = (
+      await Promise.all(
+        callIds.map(async (callId) => {
+          const session = sessions?.find((s) => s.id === callId);
+          if (!session) return null;
+          const supplier = suppliers?.find((s) => s.id === session.supplier_id);
+          const behavior =
+            policies?.find((p) => p.supplier_id === session.supplier_id)?.behavior_profile ?? '';
+          const quote = quotes?.find((q) => q.call_id === callId);
+          const transcript = session.transcript as TapeTurn[];
+          const lastTurn = transcript[transcript.length - 1];
+          const outcome = session.outcome as { summary?: string } | null;
+
+          // Voice runs carry a private recording; hand the client a signed URL.
+          let audioUrl: string | null = null;
+          if (session.recording_url) {
+            if (session.recording_url.startsWith('http')) {
+              audioUrl = session.recording_url;
+            } else {
+              const { data: signed } = await supabase.storage
+                .from('call-audio')
+                .createSignedUrl(session.recording_url, 3600);
+              audioUrl = signed?.signedUrl ?? null;
+            }
+          }
+
+          return {
+            id: session.id,
+            supplier_name: supplier?.name ?? 'Supplier',
+            supplier_location: supplier?.location ?? null,
+            behavior_label: BEHAVIOR_LABELS[behavior] ?? behavior,
+            turns: transcript,
+            pins: derivePins(session as unknown as PinSourceSession, (events ?? []) as PinSourceEvent[]),
+            duration_ms: (lastTurn?.at_ms ?? 0) + 4000,
+            outcome_line: outcome?.summary ?? '',
+            quote_before_cents: quote?.total_before_negotiation_cents ?? null,
+            quote_after_cents: quote?.total_after_negotiation_cents ?? null,
+            audio_url: audioUrl,
+            currency: quote?.currency ?? 'EUR',
+          } satisfies ReplaySession;
+        }),
+      )
+    ).filter((x): x is ReplaySession => x !== null);
   }
 
   return (

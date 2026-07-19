@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { dedupeLines } from '@/core/quote-pricing';
+import { computeQuoteTotals, dedupeLines } from '@/core/quote-pricing';
+import { getVertical } from '@/config/verticals';
 import type { QuoteLineArgs } from '@/negotiation/types';
 
 function l(
@@ -50,5 +51,66 @@ describe('dedupeLines', () => {
     expect(lines).toHaveLength(2);
     const early = lines.find((x) => x.label === 'early delivery');
     expect(early?.amount_cents).toBe(4000);
+  });
+});
+
+describe('computeQuoteTotals — totals never aggregate or go negative', () => {
+  const vertical = getVertical('equipment-rental-stuttgart');
+  const fields = { duration_business_days: 5 };
+
+  it('a full re-quote within one call supersedes; guaranteed never sums across versions', () => {
+    const totals = computeQuoteTotals({
+      vertical,
+      fields,
+      lines: [
+        // initial quote
+        l({ label: 'rental', category: 'rental', amount_cents: 60000, unit: 'flat', turn_index: 2 }),
+        l({ label: 'delivery', category: 'delivery', amount_cents: 9000, unit: 'flat', turn_index: 2 }),
+        l({ label: 'pickup', category: 'pickup', amount_cents: 9000, unit: 'flat', turn_index: 2 }),
+        l({ label: 'liability', category: 'insurance', amount_cents: 7000, unit: 'flat', turn_index: 2 }),
+        // re-quote after negotiation (same call, later turns)
+        l({ label: 'rental (renegotiated)', category: 'rental', amount_cents: 55000, unit: 'flat', turn_index: 8 }),
+        l({ label: 'delivery (renegotiated)', category: 'delivery', amount_cents: 9000, unit: 'flat', turn_index: 8 }),
+        l({ label: 'pickup (renegotiated)', category: 'pickup', amount_cents: 0, unit: 'flat', turn_index: 8 }),
+        l({ label: 'liability (renegotiated)', category: 'insurance', amount_cents: 7000, unit: 'flat', turn_index: 8 }),
+      ],
+      concessions: [],
+      modelClaimedTotalCents: 71000,
+    });
+    // 55000 + 9000 + 0 + 7000 — never 60000+55000 or any cross-version sum.
+    expect(totals.totalAfterCents).toBe(71000);
+    expect(totals.engineDisagreesWithModel).toBe(false);
+  });
+
+  it('a concession already reflected in the line state is not subtracted again', () => {
+    const totals = computeQuoteTotals({
+      vertical,
+      fields,
+      lines: [
+        l({ label: 'rental', category: 'rental', amount_cents: 60000, unit: 'flat', turn_index: 2 }),
+        // pickup was waived and RE-LOGGED at zero:
+        l({ label: 'pickup', category: 'pickup', amount_cents: 0, unit: 'flat', turn_index: 9 }),
+      ],
+      concessions: [
+        { category_hint: 'pickup waived', amount_before_cents: 9000, amount_after_cents: 0 },
+      ],
+      modelClaimedTotalCents: 60000,
+    });
+    expect(totals.totalAfterCents).toBe(60000);
+  });
+
+  it('an absurd discount cannot drive the guaranteed total negative', () => {
+    const totals = computeQuoteTotals({
+      vertical,
+      fields,
+      lines: [
+        l({ label: 'rental', category: 'rental', amount_cents: 187500, unit: 'flat', turn_index: 2 }),
+        l({ label: 'phantom discount', category: 'discount', amount_cents: 500000, unit: 'flat', turn_index: 7, is_mandatory: false }),
+      ],
+      concessions: [],
+      modelClaimedTotalCents: 187500,
+    });
+    expect(totals.totalAfterCents).toBeGreaterThanOrEqual(0);
+    expect(totals.breakdown.computation_notes.join(' ')).toContain('NOT applied');
   });
 });

@@ -16,14 +16,21 @@ export function VoiceCallPanel({
   specId,
   suppliers,
   onCompleted,
+  defaultOpen = false,
 }: {
   specId: string;
   suppliers: Array<{ id: string; name: string }>;
   onCompleted: () => void;
+  defaultOpen?: boolean;
 }) {
   return (
     <ConversationProvider>
-      <VoiceCallInner specId={specId} suppliers={suppliers} onCompleted={onCompleted} />
+      <VoiceCallInner
+        specId={specId}
+        suppliers={suppliers}
+        onCompleted={onCompleted}
+        defaultOpen={defaultOpen}
+      />
     </ConversationProvider>
   );
 }
@@ -32,10 +39,12 @@ function VoiceCallInner({
   specId,
   suppliers,
   onCompleted,
+  defaultOpen,
 }: {
   specId: string;
   suppliers: Array<{ id: string; name: string }>;
   onCompleted: () => void;
+  defaultOpen?: boolean;
 }) {
   const [supplierId, setSupplierId] = useState(suppliers[0]?.id ?? '');
   const [error, setError] = useState<string | null>(null);
@@ -111,7 +120,7 @@ function VoiceCallInner({
   }, [conversation]);
 
   return (
-    <details className="mt-4">
+    <details className="mt-4" open={defaultOpen}>
       <summary className="cursor-pointer text-xs text-steel hover:text-ink">
         Voice call — you play the dispatcher (budget-capped)
       </summary>

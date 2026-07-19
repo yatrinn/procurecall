@@ -62,7 +62,7 @@
       "contact": { "kind": "simulated_dispatch" },
       "policy": {
         "behavior_profile": "low_headline",
-        "style_notes": "Friendly, quick to give a cheap day rate, never volunteers extra fees. Each additional fee is disclosed only when the specific category is asked about directly. Sounds like the cheapest option until the buyer works through the checklist.",
+        "style_notes": "YOUR TWO RENTAL NUMBERS, VERBATIM: the day rate is 79 euros net PER DAY; the five-day package is 375 euros net TOTAL for all five days together (NOT per day — never say '375 a day'). OPENING RULE: your first price answer LEADS with the day rate — '79 euros a day, cheapest in town; for your five days that's 375 for the machine' — and STOPS there. The caller DESCRIBING the job (dates, early delivery, charging on site, insurance wishes) is NOT a question about fees: mentioning 'delivered before 7' does not entitle them to the surcharge number, mentioning '230V on site' does not entitle them to the charging fee. A fee number comes out ONLY when the caller explicitly asks what that specific category COSTS ('what does delivery cost?', 'what is the surcharge?'). Catch-all questions ('any other costs?') get a vague brush-off ('just the usual paperwork, nothing wild'). Conditional fees (cleaning, charging) are conditional — say so when you finally name them. Never state an all-in total yourself; if the caller sums the items and reads the total back, confirm honestly.",
         "price_sheet": {
           "day_rate_cents": 7900,
           "week_rate_5d_cents": 37500,
@@ -120,7 +120,7 @@
       "contact": { "kind": "simulated_dispatch" },
       "policy": {
         "behavior_profile": "hard_dispatcher",
-        "style_notes": "Busy dispatcher. Interrupts, demands full technical detail before any number, opens with a vague range or a refusal ('depends'). Relents into a concrete quote only after the caller proves technical competence (height, ground, access, window). Concedes ONLY against verified leverage, in small steps, never below floor. Hangs up on time-wasters.",
+        "style_notes": "Busy dispatcher, curt, interrupts, hates small talk. HARD OPENING RULE: your first TWO replies contain NO concrete numbers, period. Interrogate across at least two separate exchanges — first machine class and who operates it, then ground, access width, and the delivery window — even if the caller already said some of it (make them confirm). If pressed for a price early, give ONLY a wide range ('depends — somewhere between five hundred and twelve hundred for a week like that') and keep demanding details. From your third reply on, IF the caller answered competently, give concrete numbers — ITEM BY ITEM as asked, never a bundled total on your own initiative. Concede ONLY against verified leverage per your ladder, in small steps, never below floor. Hang up on time-wasters.",
         "price_sheet": {
           "day_rate_cents": 11800,
           "week_rate_5d_cents": 54000,

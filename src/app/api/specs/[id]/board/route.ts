@@ -33,11 +33,19 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       supabase.from('suppliers').select('id, name, location, is_simulated, distance_km'),
     ]);
 
-  const sessionIds = new Set((sessions ?? []).map((s) => s.id));
+  // Public hygiene: smoke-test sessions and calls that never actually started
+  // (failed with fewer than two turns) do not belong on any public surface.
+  const publicSessions = (sessions ?? []).filter((s) => {
+    if (s.failure_state === 'smoke_test_session') return false;
+    const turns = (s.transcript as unknown[]) ?? [];
+    if (s.status === 'failed' && turns.length < 2) return false;
+    return true;
+  });
+  const sessionIds = new Set(publicSessions.map((s) => s.id));
 
   // recording_url stores a private storage path; hand the client signed URLs.
   const withAudio = await Promise.all(
-    (sessions ?? []).map(async (s) => {
+    publicSessions.map(async (s) => {
       if (!s.recording_url || s.recording_url.startsWith('http')) return s;
       const { data } = await supabase.storage
         .from('call-audio')

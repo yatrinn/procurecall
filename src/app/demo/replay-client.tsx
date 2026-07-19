@@ -22,6 +22,9 @@ export interface ReplaySession {
   outcome_line: string;
   quote_before_cents: number | null;
   quote_after_cents: number | null;
+  /** Signed URL of the call recording (voice runs). */
+  audio_url: string | null;
+  currency: string;
 }
 
 const SPEED = 14; // replay time compression
@@ -99,10 +102,13 @@ export function ReplayClient({ sessions }: { sessions: ReplaySession[] }) {
                   s.quote_after_cents !== null &&
                   s.quote_before_cents !== s.quote_after_cents ? (
                     <span className="figure text-verified">
-                      {(s.quote_before_cents / 100).toFixed(2)} → {(s.quote_after_cents / 100).toFixed(2)} EUR net
+                      {(s.quote_before_cents / 100).toFixed(2)} → {(s.quote_after_cents / 100).toFixed(2)}{' '}
+                      {s.currency} net
                     </span>
                   ) : s.quote_after_cents !== null ? (
-                    <span className="figure">{(s.quote_after_cents / 100).toFixed(2)} EUR net</span>
+                    <span className="figure">
+                      {(s.quote_after_cents / 100).toFixed(2)} {s.currency} net
+                    </span>
                   ) : null}
                 </span>
               ) : null}
@@ -112,6 +118,7 @@ export function ReplayClient({ sessions }: { sessions: ReplaySession[] }) {
               turns={s.turns}
               pins={s.pins}
               durationMs={maxMs}
+              audioUrl={s.audio_url}
               revealUntilMs={clock}
             />
             {clock >= s.duration_ms ? (
@@ -143,6 +150,19 @@ export function RunLive() {
     router.push(`/board/${body.spec_id}`);
   }, [router]);
 
+  const voiceRun = useCallback(async () => {
+    setBusy(true);
+    setError(null);
+    const res = await fetch('/api/golden/voice-spec', { method: 'POST' });
+    const body = (await res.json()) as { spec_id?: string; error?: string };
+    if (!res.ok || !body.spec_id) {
+      setError(body.error ?? 'The voice run could not be prepared.');
+      setBusy(false);
+      return;
+    }
+    router.push(`/board/${body.spec_id}?voice=1`);
+  }, [router]);
+
   const reset = useCallback(async () => {
     setBusy(true);
     setError(null);
@@ -167,14 +187,18 @@ export function RunLive() {
         <PrimaryButton onClick={run} disabled={busy}>
           {busy ? 'Preparing…' : 'Run it live now'}
         </PrimaryButton>
+        <QuietButton onClick={voiceRun} disabled={busy}>
+          Voice call — you play the dispatcher
+        </QuietButton>
         <QuietButton onClick={reset} disabled={busy}>
           Reset demo data
         </QuietButton>
       </div>
       <p className="mt-2 max-w-xl text-xs text-steel">
         A live run creates a fresh confirmed copy of this exact brief and negotiates it from
-        zero — different wording, different outcomes, same rules. Nothing is scripted. Live runs
-        are rate-limited to protect the demo.
+        zero — different wording, different outcomes, same rules. Nothing is scripted. The voice
+        option opens the board with the live ElevenLabs buyer agent ready: it speaks for the
+        buyer, you answer as the supplier&apos;s dispatcher. Sessions cap at 4 minutes.
       </p>
       {error ? <p className="mt-3 text-sm text-flag">{error}</p> : null}
       {resetNote ? <p className="mt-3 text-sm text-steel">{resetNote}</p> : null}

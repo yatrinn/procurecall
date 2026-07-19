@@ -146,6 +146,19 @@ export function computePriceBreakdown(lines: PriceLine[], ctx: PriceContext): Pr
     guaranteed += amount;
   }
 
+  // Discount sanity: evidence-backed costs can never sum below zero. If
+  // discounts exceed the positive cost base, they are anomalous (mislogged or
+  // withdrawn mid-call) — exclude them and say so, never emit a negative total.
+  if (guaranteed < 0) {
+    const discountTotal = lines
+      .filter((l) => l.category === 'discount')
+      .reduce((sum, l) => sum + Math.abs(resolveAmount(l)), 0);
+    notes.push(
+      `Discounts (${discountTotal} cents) exceed the cost base; they look mislogged or withdrawn and were NOT applied. Review the transcript.`,
+    );
+    guaranteed += discountTotal;
+  }
+
   const tax = Math.round(guaranteed * ctx.vatRate);
   const presentCategories = new Set(lines.map((l) => l.category));
   const unknown = ctx.requiredCategories.filter((c) => !presentCategories.has(c));

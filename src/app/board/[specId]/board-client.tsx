@@ -104,9 +104,11 @@ function eur(cents: number | null | undefined): string {
 export function BoardClient({
   specId,
   supplierIds,
+  voiceOpen = false,
 }: {
   specId: string;
   supplierIds: string[];
+  voiceOpen?: boolean;
 }) {
   const [state, setState] = useState<BoardState | null>(null);
   const [starting, setStarting] = useState(false);
@@ -259,6 +261,7 @@ export function BoardClient({
           .filter((s) => supplierIds.includes(s.id))
           .map((s) => ({ id: s.id, name: s.name }))}
         onCompleted={refresh}
+        defaultOpen={voiceOpen}
       />
 
       <div ref={containerRef} className="relative mt-6">

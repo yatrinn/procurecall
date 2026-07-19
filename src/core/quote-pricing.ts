@@ -82,13 +82,27 @@ export function computeQuoteTotals(input: {
   const priceLines = dedupeLines(input.lines);
   const before = computePriceBreakdown(priceLines, ctx);
 
-  // Concession deltas (verified negotiation events) applied to the before-state.
+  // Concession deltas apply ONLY when the final line state still shows the
+  // pre-concession amount (e.g. a waived fee that was never re-logged). If
+  // the buyer re-logged the line at its new amount, the concession is already
+  // inside the line state — subtracting it again would double-count. This
+  // rule is what keeps totals from ever drifting below the evidence.
+  const lineAmounts = new Set(priceLines.map((l) => l.amount_cents));
   const concessionTotal = input.concessions.reduce((sum, c) => {
     if (c.amount_before_cents === null || c.amount_after_cents === null) return sum;
+    if (!lineAmounts.has(c.amount_before_cents)) return sum;
     return sum + (c.amount_before_cents - c.amount_after_cents);
   }, 0);
 
-  const afterGuaranteed = before.guaranteed_net_cents - concessionTotal;
+  let afterGuaranteed = before.guaranteed_net_cents - concessionTotal;
+  if (afterGuaranteed < 0) {
+    // Structural guard: a negative guaranteed total is impossible; fall back
+    // to the evidence-backed line state and record the anomaly.
+    before.computation_notes.push(
+      `Concession arithmetic would drive the total below zero (${afterGuaranteed}); falling back to the line state. Review the negotiation events.`,
+    );
+    afterGuaranteed = before.guaranteed_net_cents;
+  }
   const notes = [...before.computation_notes];
   if (
     input.modelClaimedTotalCents !== null &&

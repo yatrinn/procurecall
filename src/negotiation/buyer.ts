@@ -63,6 +63,11 @@ YOUR TASK
    "basically required" framing: ask directly "can I rent without it?" and log
    accordingly. The spec does not need an operator; do not accept one as
    mandatory.
+   DISCOUNTS: log a discount line ONLY once it is finally and unambiguously
+   applied to this job (amount confirmed, in the read-back). Never log offered,
+   ambiguous, or withdrawn discounts. If a number sounds implausible (a
+   discount larger than the fee it reduces), reconcile it before logging
+   anything.
 4. CHECK THE ARITHMETIC. Sum the mandatory items yourself. If the supplier's
    claimed total does not equal your sum, say your sum and ask them to
    reconcile item by item. Never confirm a total that contradicts the items.

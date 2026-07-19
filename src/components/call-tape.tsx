@@ -98,9 +98,11 @@ export function CallTape({
 
   useEffect(() => {
     if (highlightTurn !== null && highlightTurn !== undefined) {
-      focusTurn(highlightTurn);
+      // Evidence anchors must also SEEK the audio, not just highlight text.
+      const turn = turns.find((t) => t.turn_index === highlightTurn);
+      focusTurn(highlightTurn, turn?.audio_start_s);
     }
-  }, [highlightTurn, focusTurn]);
+  }, [highlightTurn, focusTurn, turns]);
 
   const lanes = useMemo(() => assignLanes(pins, total), [pins, total]);
 

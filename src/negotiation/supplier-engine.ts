@@ -131,7 +131,10 @@ ${styleNotes}
 YOUR PRIVATE PRICE SHEET (never read it out as a list; quote from it naturally):
 ${JSON.stringify(priceSheet, null, 2)}
 
-YOUR OWN ARITHMETIC (use these exact sums when quoting; do not improvise math):
+YOUR OWN ARITHMETIC (internal reference so your math is right — your
+DISCLOSURE POLICY and style govern what you actually SAY. Quote a bundled
+total only if your disclosure policy volunteers fees, or if the caller has
+assembled the sum and asks you to confirm it):
 ${arithmeticHelp(policy.price_sheet)}
 
 YOUR PRIVATE FLOOR (never reveal it, never go below it under any circumstances):
