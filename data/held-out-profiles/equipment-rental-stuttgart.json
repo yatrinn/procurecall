@@ -1,0 +1,86 @@
+{
+  "description": "Held-out supplier profiles for the evaluation lab. NEVER used during development iteration — they exist to measure whether the negotiation policy generalizes to unseen commercial behavior. Results are labeled 'Negotiation performance on held-out market scenarios'; they do not prove real-world savings.",
+  "vertical_slug": "equipment-rental-stuttgart",
+  "profiles": [
+    {
+      "key": "capacity_constrained",
+      "name": "HO Süd Hebetechnik",
+      "behavior_profile": "capacity_constrained",
+      "style_notes": "Only one 12 m electric unit left and it is reserved until Tuesday. Offers Wednesday delivery or a 10 m unit today. Firm but helpful; will quote precisely if pressed.",
+      "price_sheet": { "day_rate_cents": 11000, "week_rate_5d_cents": 50000, "delivery_cents": 10000, "pickup_cents": 10000, "liability_reduction_per_day_cents": 1300, "liability_reduction_mandatory": true, "deposit_cents": 20000, "early_delivery_before_7_surcharge_cents": 3000, "electric_12m_available": false, "available_from": "2026-07-29" },
+      "floor": { "min_total_net_cents_5d": 70000 },
+      "concession_ladder": [{ "step": 1, "action": "waive_early_delivery_surcharge", "requires": "competing_verified_quote" }],
+      "disclosure_policy": { "volunteers_all_fees": true, "states_tax_basis": "net_plus_vat" }
+    },
+    {
+      "key": "substitute_seller",
+      "name": "HO Rampe & Bühne",
+      "behavior_profile": "substitute_seller",
+      "style_notes": "Always steers to what is on the yard: a 13.8 m diesel boom lift 'much better for outdoor'. Quotes the substitute readily, the requested machine reluctantly with a longer lead time.",
+      "price_sheet": { "day_rate_cents": 12500, "week_rate_5d_cents": 56000, "delivery_cents": 9500, "pickup_cents": 9500, "liability_reduction_per_day_cents": 1500, "liability_reduction_mandatory": true, "deposit_cents": 0, "early_delivery_before_7_surcharge_cents": 5000, "electric_12m_available": true, "available_from": "immediate" },
+      "floor": { "min_total_net_cents_5d": 74000 },
+      "concession_ladder": [{ "step": 1, "action": "rental_discount_cents", "amount_cents": 3000, "requires": "competing_verified_quote" }],
+      "disclosure_policy": { "volunteers_all_fees": false, "discloses_fee_only_when_category_asked": true }
+    },
+    {
+      "key": "callback_only",
+      "name": "HO Kran Meyer",
+      "behavior_profile": "callback_only",
+      "style_notes": "Office worker without pricing authority. Cannot give numbers; the boss quotes personally and calls back. Can commit to a concrete callback window if asked firmly.",
+      "price_sheet": { "note": "no numbers over the phone" },
+      "floor": { "min_total_net_cents_5d": 0 },
+      "concession_ladder": [],
+      "disclosure_policy": { "volunteers_all_fees": false }
+    },
+    {
+      "key": "relationship_driven",
+      "name": "HO Partner Bühnen",
+      "behavior_profile": "relationship_driven",
+      "style_notes": "Warm, chatty, wants the long-term account. Offers a 'first-order discount' readily but inflates delivery. Responds to repeat-business talk (only if the buyer actually has that lever).",
+      "price_sheet": { "day_rate_cents": 10500, "week_rate_5d_cents": 48000, "delivery_cents": 17500, "pickup_cents": 17500, "liability_reduction_per_day_cents": 1200, "liability_reduction_mandatory": true, "deposit_cents": 10000, "early_delivery_before_7_surcharge_cents": 0, "electric_12m_available": true, "available_from": "immediate", "first_order_discount_cents": 5000 },
+      "floor": { "min_total_net_cents_5d": 72000 },
+      "concession_ladder": [{ "step": 1, "action": "apply_first_order_discount", "requires": "any_reasonable_ask" }, { "step": 2, "action": "reduce_delivery_and_pickup_cents", "amount_cents": 4000, "requires": "competing_verified_quote" }],
+      "disclosure_policy": { "volunteers_all_fees": false, "discloses_fee_only_when_category_asked": true }
+    },
+    {
+      "key": "inflexible",
+      "name": "HO Beton & Bühne",
+      "behavior_profile": "inflexible",
+      "style_notes": "List price is list price. Polite, complete, zero movement regardless of leverage. Never rude, never budges.",
+      "price_sheet": { "day_rate_cents": 12000, "week_rate_5d_cents": 57500, "delivery_cents": 11000, "pickup_cents": 11000, "liability_reduction_per_day_cents": 1400, "liability_reduction_mandatory": true, "deposit_cents": 30000, "early_delivery_before_7_surcharge_cents": 4000, "electric_12m_available": true, "available_from": "immediate" },
+      "floor": { "min_total_net_cents_5d": 94500 },
+      "concession_ladder": [],
+      "disclosure_policy": { "volunteers_all_fees": true, "states_tax_basis": "net_plus_vat" }
+    },
+    {
+      "key": "upseller",
+      "name": "HO Alles Dabei Vermietung",
+      "behavior_profile": "upseller",
+      "style_notes": "Pushes operator service, weekend package, premium insurance, site survey. Base machine is fine and cheap; every answer comes with an add-on pitch.",
+      "price_sheet": { "day_rate_cents": 9000, "week_rate_5d_cents": 42500, "delivery_cents": 9000, "pickup_cents": 9000, "liability_reduction_per_day_cents": 1100, "liability_reduction_mandatory": true, "deposit_cents": 0, "early_delivery_before_7_surcharge_cents": 3500, "operator_per_day_cents": 38000, "weekend_package_cents": 15000, "premium_insurance_per_day_cents": 2500, "electric_12m_available": true, "available_from": "immediate" },
+      "floor": { "min_total_net_cents_5d": 60000 },
+      "concession_ladder": [{ "step": 1, "action": "waive_early_delivery_surcharge", "requires": "commitment_today" }],
+      "disclosure_policy": { "volunteers_all_fees": false, "discloses_fee_only_when_category_asked": true }
+    },
+    {
+      "key": "incomplete_quoter",
+      "name": "HO Schnellverleih",
+      "behavior_profile": "incomplete_quoter",
+      "style_notes": "Gives the rental rate instantly and dodges everything else ('depends', 'we sort that on delivery'). Never volunteers delivery, insurance, or deposit; answers only after the third concrete ask.",
+      "price_sheet": { "day_rate_cents": 8500, "week_rate_5d_cents": 40000, "delivery_cents": 14000, "pickup_cents": 14000, "liability_reduction_per_day_cents": 1600, "liability_reduction_mandatory": true, "deposit_cents": 40000, "early_delivery_before_7_surcharge_cents": 5500, "electric_12m_available": true, "available_from": "immediate" },
+      "floor": { "min_total_net_cents_5d": 68000 },
+      "concession_ladder": [{ "step": 1, "action": "reduce_deposit_cents", "amount_cents": 15000, "requires": "commitment_today" }],
+      "disclosure_policy": { "volunteers_all_fees": false, "discloses_fee_only_when_category_asked": true, "reveals_deposit_unprompted": false }
+    },
+    {
+      "key": "expired_availability",
+      "name": "HO Termin Verleih",
+      "behavior_profile": "expired_availability",
+      "style_notes": "Quotes cleanly but the unit frees up only after the requested window; offers dates two days late as if equivalent and only admits the mismatch when the dates are read back.",
+      "price_sheet": { "day_rate_cents": 9800, "week_rate_5d_cents": 46000, "delivery_cents": 10500, "pickup_cents": 10500, "liability_reduction_per_day_cents": 1250, "liability_reduction_mandatory": true, "deposit_cents": 15000, "early_delivery_before_7_surcharge_cents": 2500, "electric_12m_available": true, "available_from": "2026-07-29" },
+      "floor": { "min_total_net_cents_5d": 66000 },
+      "concession_ladder": [{ "step": 1, "action": "rental_discount_cents", "amount_cents": 2000, "requires": "competing_verified_quote" }],
+      "disclosure_policy": { "volunteers_all_fees": true, "states_tax_basis": "net_plus_vat" }
+    }
+  ]
+}

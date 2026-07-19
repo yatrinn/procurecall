@@ -11,7 +11,15 @@ export default defineConfig({
     },
   },
   test: {
-    include: ['tests/unit/**/*.test.ts', 'src/**/*.test.ts'],
+    // Adversarial/eval suites hit the real database and models; their
+    // describes are gated by RUN_ADVERSARIAL / RUN_HELDOUT and show as
+    // skipped in a plain `pnpm test`. Run them via `pnpm eval:*`.
+    include: [
+      'tests/unit/**/*.test.ts',
+      'tests/adversarial/**/*.test.ts',
+      'tests/eval/**/*.test.ts',
+      'src/**/*.test.ts',
+    ],
     environment: 'node',
   },
 });

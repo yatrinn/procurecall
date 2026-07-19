@@ -90,8 +90,10 @@ export interface ValidatorFindingRow {
   severity: 'info' | 'warning' | 'violation';
 }
 
-function findSupport(
-  claim: z.infer<typeof ClaimSchema>,
+export type ValidatorClaim = z.infer<typeof ClaimSchema>;
+
+export function findSupport(
+  claim: ValidatorClaim,
   toolCalls: ToolCallRecord[],
 ): { supported: boolean; support: ToolCallRecord | null; severity: 'info' | 'warning' | 'violation' } {
   const before = toolCalls.filter((t) => t.turn_index <= claim.turn_index);

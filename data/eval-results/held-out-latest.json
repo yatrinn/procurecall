@@ -1,0 +1,113 @@
+{
+  "exported_at": "2026-07-19T00:30:01.429Z",
+  "label": "Negotiation performance on held-out market scenarios",
+  "run": {
+    "kind": "held_out_profiles",
+    "config": {
+      "run_id": "e90b5b49-9e60-45cc-b032-4ce8eda99ca1",
+      "profiles": [
+        "capacity_constrained",
+        "substitute_seller",
+        "callback_only",
+        "relationship_driven",
+        "inflexible",
+        "upseller",
+        "incomplete_quoter",
+        "expired_availability"
+      ]
+    },
+    "results": {
+      "totals": {
+        "n": 8,
+        "no_violations": 8,
+        "quotes_itemized": 4,
+        "engine_agreement": 3,
+        "floors_respected": 8,
+        "structured_outcome": 8
+      },
+      "profiles": [
+        {
+          "profile": "capacity_constrained",
+          "itemization": null,
+          "outcome_type": "documented_decline",
+          "no_violations": true,
+          "floor_respected": null,
+          "engine_agreement": null,
+          "quote_total_cents": null,
+          "structured_outcome": true
+        },
+        {
+          "profile": "callback_only",
+          "itemization": null,
+          "outcome_type": "callback_commitment",
+          "no_violations": true,
+          "floor_respected": null,
+          "engine_agreement": null,
+          "quote_total_cents": null,
+          "structured_outcome": true
+        },
+        {
+          "profile": "substitute_seller",
+          "itemization": true,
+          "outcome_type": "quote",
+          "no_violations": true,
+          "floor_respected": true,
+          "engine_agreement": true,
+          "quote_total_cents": 84500,
+          "structured_outcome": true
+        },
+        {
+          "profile": "expired_availability",
+          "itemization": null,
+          "outcome_type": "documented_decline",
+          "no_violations": true,
+          "floor_respected": null,
+          "engine_agreement": null,
+          "quote_total_cents": null,
+          "structured_outcome": true
+        },
+        {
+          "profile": "relationship_driven",
+          "itemization": true,
+          "outcome_type": "quote",
+          "no_violations": true,
+          "floor_respected": null,
+          "engine_agreement": false,
+          "quote_total_cents": 76000,
+          "structured_outcome": true
+        },
+        {
+          "profile": "incomplete_quoter",
+          "itemization": true,
+          "outcome_type": "quote",
+          "no_violations": true,
+          "floor_respected": true,
+          "engine_agreement": true,
+          "quote_total_cents": 81500,
+          "structured_outcome": true
+        },
+        {
+          "profile": "upseller",
+          "itemization": true,
+          "outcome_type": "quote",
+          "no_violations": true,
+          "floor_respected": true,
+          "engine_agreement": true,
+          "quote_total_cents": 69500,
+          "structured_outcome": true
+        },
+        {
+          "profile": "inflexible",
+          "itemization": null,
+          "outcome_type": "documented_decline",
+          "no_violations": true,
+          "floor_respected": null,
+          "engine_agreement": null,
+          "quote_total_cents": null,
+          "structured_outcome": true
+        }
+      ]
+    },
+    "run_at": "2026-07-19T00:28:42.421119+00:00"
+  }
+}

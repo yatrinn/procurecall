@@ -206,34 +206,7 @@ export async function generateSupplierTurn(input: {
   let turn = await run();
 
   // Policy enforcement: floor and ladder are checked by code, not trusted to the model.
-  const violations: string[] = [];
-  if (
-    typeof floorCents === 'number' &&
-    turn.internal.all_in_total_for_full_job_net_cents !== null &&
-    turn.internal.all_in_total_for_full_job_net_cents < floorCents
-  ) {
-    violations.push(
-      `You quoted a total below your floor. Re-answer without going below your minimum position; you may decline instead.`,
-    );
-  }
-  if (turn.internal.concession_step_used !== null) {
-    const step = input.policy.concession_ladder.find(
-      (s) => (s.step as number) === turn.internal.concession_step_used,
-    );
-    const alreadyUsed = input.state.consumed_concession_steps.includes(
-      turn.internal.concession_step_used,
-    );
-    const lowerUnused = input.policy.concession_ladder.some(
-      (s) =>
-        (s.step as number) < (turn.internal.concession_step_used as number) &&
-        !input.state.consumed_concession_steps.includes(s.step as number),
-    );
-    if (!step || alreadyUsed) {
-      violations.push('You used a concession step that does not exist or is already spent.');
-    } else if (lowerUnused) {
-      violations.push('You skipped a ladder step. Concessions go in order.');
-    }
-  }
+  const violations = enforceSupplierPolicy(turn, input.policy, input.state);
   if (violations.length > 0) {
     turn = await run(violations.join(' '));
     // Final clamp: if the regenerated turn still violates the floor, hold position.
@@ -258,6 +231,47 @@ export async function generateSupplierTurn(input: {
     }
   }
   return turn;
+}
+
+/**
+ * Pure policy check for a supplier turn: floor and concession-ladder rules.
+ * Exposed so the adversarial suite can verify enforcement deterministically.
+ */
+export function enforceSupplierPolicy(
+  turn: SupplierTurn,
+  policy: SupplierPolicyRow,
+  state: SupplierState,
+): string[] {
+  const floorCents = (policy.floor as { min_total_net_cents_5d?: number }).min_total_net_cents_5d;
+  const violations: string[] = [];
+  if (
+    typeof floorCents === 'number' &&
+    turn.internal.all_in_total_for_full_job_net_cents !== null &&
+    turn.internal.all_in_total_for_full_job_net_cents < floorCents
+  ) {
+    violations.push(
+      `You quoted a total below your floor. Re-answer without going below your minimum position; you may decline instead.`,
+    );
+  }
+  if (turn.internal.concession_step_used !== null) {
+    const step = policy.concession_ladder.find(
+      (s) => (s.step as number) === turn.internal.concession_step_used,
+    );
+    const alreadyUsed = state.consumed_concession_steps.includes(
+      turn.internal.concession_step_used,
+    );
+    const lowerUnused = policy.concession_ladder.some(
+      (s) =>
+        (s.step as number) < (turn.internal.concession_step_used as number) &&
+        !state.consumed_concession_steps.includes(s.step as number),
+    );
+    if (!step || alreadyUsed) {
+      violations.push('You used a concession step that does not exist or is already spent.');
+    } else if (lowerUnused) {
+      violations.push('You skipped a ladder step. Concessions go in order.');
+    }
+  }
+  return violations;
 }
 
 export function applySupplierTurn(state: SupplierState, turn: SupplierTurn): SupplierState {

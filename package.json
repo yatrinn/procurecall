@@ -13,6 +13,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "eval:adversarial": "RUN_ADVERSARIAL=1 vitest run tests/adversarial --testTimeout=300000 --no-file-parallelism",
+    "eval:heldout": "RUN_HELDOUT=1 vitest run tests/eval --testTimeout=600000",
     "setup:check": "tsx scripts/setup-check.ts"
   },
   "dependencies": {
