@@ -163,8 +163,7 @@ export default async function DemoPage() {
       <section className="mt-12 border-t border-line pt-6 sm:mt-14">
         <h2 className="text-sm font-medium">Run it live</h2>
         <p className="mt-1 max-w-xl text-sm text-steel">
-          Spins up a fresh copy of the same brief and calls the market for real. Limited per IP
-          so the demo stays usable for everyone.
+          Same brief again, three real calls. Limited per IP so the demo stays usable for everyone.
         </p>
         <div className="mt-3">
           <RunLive />

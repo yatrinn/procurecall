@@ -195,10 +195,9 @@ export function RunLive() {
         </QuietButton>
       </div>
       <p className="mt-2 max-w-xl text-xs text-steel">
-        A live run creates a fresh confirmed copy of this exact brief and negotiates it from
-        zero — different wording, different outcomes, same rules. Nothing is scripted. The voice
-        option opens the board with the live ElevenLabs buyer agent ready: it speaks for the
-        buyer, you answer as the supplier&apos;s dispatcher. Sessions cap at 4 minutes.
+        Live run: same brief, new calls — wording and outcomes can differ from the recording.
+        Voice option: the buyer agent talks; you answer as the dispatcher. Sessions cap at
+        4 minutes.
       </p>
       {error ? <p className="mt-3 text-sm text-flag">{error}</p> : null}
       {resetNote ? <p className="mt-3 text-sm text-steel">{resetNote}</p> : null}
