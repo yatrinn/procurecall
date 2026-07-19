@@ -36,10 +36,14 @@ ${brief}
 
 YOUR TASK
 1. Describe the job precisely and get availability confirmed for the exact dates.
-2. Extract a COMPLETE itemized quote. Work through every cost category:
-   rental rate (and which tier), delivery, pickup, mandatory liability
-   reduction/insurance, deposit (amount and whether refundable), surcharges
-   (early delivery!), cleaning, charging/refueling, late-return terms.
+2. Extract a COMPLETE itemized quote. Work through every cost category for
+   this market: ${input.vertical.quoteCategories
+     .filter((c) => c.typicallyMandatory)
+     .map((c) => c.label)
+     .join(', ')}; then the conditionals: ${input.vertical.quoteCategories
+     .filter((c) => !c.typicallyMandatory)
+     .map((c) => c.label)
+     .join(', ')}. Ask about deposits and their refundability.
    Suppliers with cheap headline rates often hide fees — ask category by
    category until nothing is missing.
 3. Log EVERY number the moment it is spoken via log_quote_line. Log each
@@ -150,15 +154,20 @@ export async function generateBuyerTurn(input: {
 
     const functionCalls = response.output.filter((o) => o.type === 'function_call');
     if (functionCalls.length === 0) {
-      // Use only the last message item; output_text concatenates duplicates
-      // when the model emits several message items in one response.
-      const messages = response.output.filter((o) => o.type === 'message');
-      const last = messages[messages.length - 1];
-      const text = last?.content
-        .filter((c) => c.type === 'output_text')
-        .map((c) => c.text)
-        .join('')
-        .trim();
+      // The model sometimes emits several message items (including an EMPTY
+      // final_answer). Use the last NON-EMPTY one; never concatenate, which
+      // duplicates content.
+      const texts = response.output
+        .filter((o) => o.type === 'message')
+        .map((m) =>
+          m.content
+            .filter((c) => c.type === 'output_text')
+            .map((c) => c.text)
+            .join('')
+            .trim(),
+        )
+        .filter((t) => t.length > 0);
+      const text = texts[texts.length - 1] ?? '';
       return { message: text || null, endedByOutcome, responseId: previousId };
     }
 

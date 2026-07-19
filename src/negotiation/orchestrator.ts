@@ -193,7 +193,7 @@ export async function runTextCall(callId: string): Promise<void> {
         break;
       }
 
-      const buyerTurn = await generateBuyerTurn({
+      let buyerTurn = await generateBuyerTurn({
         systemPrompt,
         previousResponseId: buyerResponseId,
         supplierMessage: latestSupplierMessage,
@@ -203,6 +203,20 @@ export async function runTextCall(callId: string): Promise<void> {
         nowMs,
       });
       buyerResponseId = buyerTurn.responseId;
+      if (!buyerTurn.message && !buyerTurn.endedByOutcome && !outcome) {
+        // A silent turn is never acceptable on a phone call; nudge once.
+        buyerTurn = await generateBuyerTurn({
+          systemPrompt,
+          previousResponseId: buyerResponseId,
+          supplierMessage:
+            '[SYSTEM NOTE — not the supplier: you produced no speech. You are on a live call; speak your next line now.]',
+          tools,
+          record,
+          turnIndex: turnCounter,
+          nowMs,
+        });
+        buyerResponseId = buyerTurn.responseId;
+      }
 
       if (buyerTurn.message) {
         const idx = turnCounter++;

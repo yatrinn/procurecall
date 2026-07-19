@@ -12,7 +12,13 @@ interface TranscriptTurn {
   message: string;
 }
 
-export function IntakePanel() {
+export function IntakePanel({
+  vertical,
+  placeholder,
+}: {
+  vertical: string;
+  placeholder?: string;
+}) {
   const router = useRouter();
   const [path, setPath] = useState<Path>('voice');
   const [busy, setBusy] = useState(false);
@@ -28,7 +34,7 @@ export function IntakePanel() {
       const res = await fetch('/api/intake/text', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, source: 'voice' }),
+        body: JSON.stringify({ text, source: 'voice', vertical }),
       });
       const body = (await res.json()) as { spec_id?: string; error?: string };
       if (!res.ok || !body.spec_id) {
@@ -38,7 +44,7 @@ export function IntakePanel() {
       }
       router.push(`/request/${body.spec_id}`);
     },
-    [router],
+    [router, vertical],
   );
 
   return (
@@ -70,11 +76,11 @@ export function IntakePanel() {
       <div className="mt-6 max-w-xl">
         {path === 'voice' ? (
           <ConversationProvider>
-            <VoiceIntake onTranscript={submitTranscript} busy={busy} />
+            <VoiceIntake onTranscript={submitTranscript} busy={busy} vertical={vertical} />
           </ConversationProvider>
         ) : null}
-        {path === 'document' ? <DocumentIntake /> : null}
-        {path === 'text' ? <TextIntake /> : null}
+        {path === 'document' ? <DocumentIntake vertical={vertical} /> : null}
+        {path === 'text' ? <TextIntake vertical={vertical} placeholder={placeholder} /> : null}
         {error ? <p className="mt-3 text-sm text-flag">{error}</p> : null}
         {busy ? <p className="mt-3 text-sm text-steel">Building your request…</p> : null}
       </div>
@@ -85,9 +91,11 @@ export function IntakePanel() {
 function VoiceIntake({
   onTranscript,
   busy,
+  vertical,
 }: {
   onTranscript: (turns: TranscriptTurn[]) => Promise<void>;
   busy: boolean;
+  vertical: string;
 }) {
   const [error, setError] = useState<string | null>(null);
   const [turns, setTurns] = useState<TranscriptTurn[]>([]);
@@ -150,7 +158,11 @@ function VoiceIntake({
       setError('Microphone access is required for the voice interview. Use document upload or typed intake instead.');
       return;
     }
-    const res = await fetch('/api/voice/intake-session', { method: 'POST', body: '{}' });
+    const res = await fetch('/api/voice/intake-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ vertical }),
+    });
     const body = (await res.json()) as {
       signed_url?: string;
       dynamic_variables?: Record<string, string>;
@@ -165,7 +177,7 @@ function VoiceIntake({
       signedUrl: body.signed_url,
       dynamicVariables: body.dynamic_variables,
     });
-  }, [conversation]);
+  }, [conversation, vertical]);
 
   const stop = useCallback(async () => {
     await conversation.endSession();
@@ -212,7 +224,7 @@ function VoiceIntake({
   );
 }
 
-function DocumentIntake() {
+function DocumentIntake({ vertical }: { vertical: string }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -225,6 +237,7 @@ function DocumentIntake() {
       setError(null);
       const form = new FormData();
       form.set('file', file);
+      form.set('vertical', vertical);
       const res = await fetch('/api/intake/document', { method: 'POST', body: form });
       const body = (await res.json()) as { spec_id?: string; error?: string };
       if (!res.ok || !body.spec_id) {
@@ -234,7 +247,7 @@ function DocumentIntake() {
       }
       router.push(`/request/${body.spec_id}`);
     },
-    [router],
+    [router, vertical],
   );
 
   return (
@@ -267,7 +280,7 @@ function DocumentIntake() {
   );
 }
 
-function TextIntake() {
+function TextIntake({ vertical, placeholder }: { vertical: string; placeholder?: string }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -279,7 +292,7 @@ function TextIntake() {
     const res = await fetch('/api/intake/text', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, source: 'manual' }),
+      body: JSON.stringify({ text, source: 'manual', vertical }),
     });
     const body = (await res.json()) as { spec_id?: string; error?: string };
     if (!res.ok || !body.spec_id) {
@@ -288,18 +301,18 @@ function TextIntake() {
       return;
     }
     router.push(`/request/${body.spec_id}`);
-  }, [router, text]);
+  }, [router, text, vertical]);
 
   return (
     <div>
       <p className="text-sm text-steel">
-        Describe the job in your own words — equipment, dates, site, constraints.
+        Describe the job in your own words — what, where, when, constraints.
       </p>
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
         rows={6}
-        placeholder="We need a 12 m electric scissor lift at Königstraße 10, Stuttgart, delivered Monday before 07:00…"
+        placeholder={placeholder ? `${placeholder}…` : 'Describe the job…'}
         className="mt-4 w-full rounded-sm border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-steel"
       />
       <div className="mt-3">

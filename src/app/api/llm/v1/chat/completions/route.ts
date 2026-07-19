@@ -130,14 +130,17 @@ export async function POST(request: Request) {
     });
     const functionCalls = response.output.filter((o) => o.type === 'function_call');
     if (functionCalls.length === 0) {
-      const messages = response.output.filter((o) => o.type === 'message');
-      const last = messages[messages.length - 1];
-      finalText =
-        last?.content
-          .filter((c) => c.type === 'output_text')
-          .map((c) => c.text)
-          .join('')
-          .trim() ?? '';
+      const texts = response.output
+        .filter((o) => o.type === 'message')
+        .map((m) =>
+          m.content
+            .filter((c) => c.type === 'output_text')
+            .map((c) => c.text)
+            .join('')
+            .trim(),
+        )
+        .filter((t) => t.length > 0);
+      finalText = texts[texts.length - 1] ?? '';
       break;
     }
     const outputs: Item[] = [];

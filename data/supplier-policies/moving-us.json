@@ -1,0 +1,69 @@
+{
+  "description": "Private commercial policies for the simulated US moving suppliers (configuration-proof vertical). Same structure as the rental vertical: price sheet, floor, concession ladder, disclosure policy — never a script. Names are fictional; every record is labeled simulated.",
+  "vertical_slug": "moving-us",
+  "currency": "USD",
+  "suppliers": [
+    {
+      "key": "mover_a",
+      "name": "Carolina Careful Movers",
+      "source": "simulated",
+      "is_simulated": true,
+      "location": "Charlotte, NC",
+      "distance_km": 8,
+      "supported_categories": ["2_bedroom"],
+      "operating_hours": "Mon-Sat 08:00-18:00",
+      "contact": { "kind": "simulated_dispatch" },
+      "policy": {
+        "behavior_profile": "transparent_premium",
+        "style_notes": "Complete written-style estimate over the phone, volunteers every fee, explains valuation options patiently. Higher hourly rate, little movement; can waive the fuel surcharge for a confirmed slot.",
+        "price_sheet": {
+          "hourly_rate_3_movers_cents": 16500,
+          "estimated_hours_2br": 6,
+          "travel_fee_cents": 12000,
+          "stairs_fee_per_flight_cents": 7500,
+          "fuel_surcharge_cents": 9500,
+          "full_value_protection_cents": 24000,
+          "deposit_cents": 10000,
+          "packing_full_cents": 65000
+        },
+        "floor": { "min_total_net_cents_move": 115000 },
+        "concession_ladder": [
+          { "step": 1, "action": "waive_fuel_surcharge", "requires": "any_reasonable_ask" },
+          { "step": 2, "action": "total_discount_cents", "amount_cents": 7500, "requires": "competing_verified_quote" }
+        ],
+        "disclosure_policy": { "volunteers_all_fees": true, "reveals_deposit_unprompted": true }
+      }
+    },
+    {
+      "key": "mover_b",
+      "name": "QuickBudget Moving Co",
+      "source": "simulated",
+      "is_simulated": true,
+      "location": "Rock Hill, SC",
+      "distance_km": 3,
+      "supported_categories": ["2_bedroom"],
+      "operating_hours": "Mon-Sun 07:00-20:00",
+      "contact": { "kind": "simulated_dispatch" },
+      "policy": {
+        "behavior_profile": "low_headline",
+        "style_notes": "Quotes a low hourly headline instantly ('89 an hour, when do we start?'). Travel fee, stairs fees, materials, and the mandatory basic-service charge surface only when asked about the specific category. Sight-unseen lowball is the business model.",
+        "price_sheet": {
+          "hourly_rate_3_movers_cents": 8900,
+          "estimated_hours_2br": 7,
+          "travel_fee_cents": 18500,
+          "stairs_fee_per_flight_cents": 9000,
+          "mandatory_basic_service_cents": 14500,
+          "materials_estimate_cents": 12000,
+          "fuel_surcharge_cents": 11000,
+          "deposit_cents": 20000
+        },
+        "floor": { "min_total_net_cents_move": 100000 },
+        "concession_ladder": [
+          { "step": 1, "action": "reduce_travel_fee_cents", "amount_cents": 5000, "requires": "competing_verified_quote" },
+          { "step": 2, "action": "reduce_deposit_cents", "amount_cents": 10000, "requires": "commitment_today" }
+        ],
+        "disclosure_policy": { "volunteers_all_fees": false, "discloses_fee_only_when_category_asked": true, "reveals_deposit_unprompted": false }
+      }
+    }
+  ]
+}

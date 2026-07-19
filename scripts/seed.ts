@@ -53,13 +53,22 @@ async function main() {
     console.log(`vertical ok: ${v.slug}`);
   }
 
-  // 2. Simulated suppliers + private policies
-  const fixturePath = path.join(
-    process.cwd(),
+  // 2. Simulated suppliers + private policies (one fixture file per vertical)
+  const fixtureFiles = [
     'data/supplier-policies/equipment-rental-stuttgart.json',
-  );
-  const fixture = JSON.parse(readFileSync(fixturePath, 'utf8')) as PolicyFixture;
+    'data/supplier-policies/moving-us.json',
+  ];
+  for (const fixtureFile of fixtureFiles) {
+    const fixture = JSON.parse(
+      readFileSync(path.join(process.cwd(), fixtureFile), 'utf8'),
+    ) as PolicyFixture;
+    await seedSuppliers(fixture);
+  }
 
+  console.log('Seed complete.');
+}
+
+async function seedSuppliers(fixture: PolicyFixture) {
   for (const s of fixture.suppliers) {
     const { data: existing, error: selErr } = await supabase
       .from('suppliers')
@@ -120,8 +129,6 @@ async function main() {
     if (polErr) throw new Error(`policy upsert failed: ${polErr.message}`);
     console.log(`supplier + policy ok: ${s.name} (${s.policy.behavior_profile})`);
   }
-
-  console.log('Seed complete.');
 }
 
 void main();
