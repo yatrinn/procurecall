@@ -42,6 +42,42 @@ describe('dedupeLines', () => {
     expect(lines).toHaveLength(2);
   });
 
+  it("REGRESSION (Neckar's 500→600 report): a restated 'other' fee collapses to one, never sums", () => {
+    // The real golden call: the supplier said "100 for the other item" at turn
+    // 7, then restated the SAME confirmed fee as "other included fee" at turn
+    // 9 during read-back. Before the fix, 'other' was not a singleton
+    // category, so both survived by distinct label text and summed to 200,
+    // inflating the engine total to 600 against the model's (correct) 500.
+    const lines = dedupeLines([
+      l({ label: 'Other', category: 'other', amount_cents: 10000, unit: 'flat', turn_index: 7 }),
+      l({ label: 'other included fee', category: 'other', amount_cents: 10000, unit: 'flat', turn_index: 9 }),
+    ]);
+    expect(lines).toHaveLength(1);
+    expect(lines[0].amount_cents).toBe(10000);
+  });
+
+  it("REGRESSION (BW Lift's 600→570 report): two differently-labeled discounts of the SAME amount collapse to one", () => {
+    // The real golden call: the buyer negotiated 600 -> 570 (one -30
+    // concession), but re-confirmed the closed deal twice, logging the same
+    // -30 discount as "conclusion discount" then "all-in package discount".
+    // Before the fix these summed to -60, driving the engine to 550 against
+    // the transcript's confirmed 570.
+    const lines = dedupeLines([
+      l({ label: 'conclusion discount', category: 'discount', amount_cents: 3000, unit: 'flat', turn_index: 13, is_mandatory: false }),
+      l({ label: 'all-in package discount', category: 'discount', amount_cents: 3000, unit: 'flat', turn_index: 15, is_mandatory: false }),
+    ]);
+    expect(lines).toHaveLength(1);
+    expect(lines[0].amount_cents).toBe(3000);
+  });
+
+  it('two genuinely distinct discounts with different amounts both survive', () => {
+    const lines = dedupeLines([
+      l({ label: 'loyalty discount', category: 'discount', amount_cents: 3000, unit: 'flat', turn_index: 4, is_mandatory: false }),
+      l({ label: 'off-season discount', category: 'discount', amount_cents: 4500, unit: 'flat', turn_index: 6, is_mandatory: false }),
+    ]);
+    expect(lines).toHaveLength(2);
+  });
+
   it('distinct surcharges are kept; same-label surcharge is replaced by the latest', () => {
     const lines = dedupeLines([
       l({ label: 'early delivery', category: 'surcharge', amount_cents: 4500, unit: 'flat', turn_index: 2 }),

@@ -36,7 +36,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   // Public hygiene: smoke-test sessions and calls that never captured a
   // single spoken turn do not belong on any public surface. Live sessions
   // (pending/in_progress) stay visible while they run.
-  const publicSessions = (sessions ?? []).filter((s) => {
+  const hygienic = (sessions ?? []).filter((s) => {
     if (s.failure_state === 'smoke_test_session') return false;
     const turns = (s.transcript as unknown[]) ?? [];
     const live = s.status === 'pending' || s.status === 'in_progress';
@@ -44,6 +44,17 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     if (s.status === 'failed' && turns.length < 2) return false;
     return true;
   });
+  // One supplier, once each: if a spec was re-run (e.g. re-verifying a
+  // golden run after a reset), keep only the latest session per supplier so
+  // the public board never shows the same supplier's card twice.
+  const latestPerSupplier = new Map<string, (typeof hygienic)[number]>();
+  for (const s of hygienic) {
+    const prior = latestPerSupplier.get(s.supplier_id);
+    if (!prior || new Date(s.started_at ?? 0) >= new Date(prior.started_at ?? 0)) {
+      latestPerSupplier.set(s.supplier_id, s);
+    }
+  }
+  const publicSessions = Array.from(latestPerSupplier.values());
   const sessionIds = new Set(publicSessions.map((s) => s.id));
 
   // recording_url stores a private storage path; hand the client signed URLs.

@@ -59,7 +59,10 @@ export async function getOrComputeRecommendation(specId: string): Promise<Recomm
       .select(
         'id, call_id, supplier_id, status, availability_status, validity_until, is_benchmark_outlier, missing_information, total_before_negotiation_cents, total_after_negotiation_cents, currency, price_breakdown',
       )
-      .eq('job_spec_id', specId),
+      .eq('job_spec_id', specId)
+      // Expired quotes are superseded reference data (e.g. a reset before a
+      // re-run) — keep them in the DB for audit, never in the public ranking.
+      .neq('status', 'expired'),
     supabase.from('suppliers').select('id, name'),
   ]);
   if (!spec || !quotes || quotes.length === 0) return null;

@@ -43,12 +43,28 @@ export function pricingContextFor(vertical: VerticalConfig, fields: SpecFields) 
  * - Multi categories (surcharge, accessory, discount, conditionals): distinct
  *   labels are distinct lines; the latest logging of the same label wins.
  */
+// Categories that describe exactly one real-world fee per job: restating it
+// with slightly different wording across turns ("Other" -> "other mandatory
+// charge" -> "other mandatory package charge") must collapse to the LATEST
+// value, never sum. Only categories where a job can legitimately carry
+// several distinctly-named items (accessory, surcharge, discount) stay
+// label-keyed. Found via the founder's golden voice run: Neckar's single
+// restated "other" fee (100 EUR, mentioned at turns 7 and 9 with different
+// wording) was double-counted to 200 EUR, inflating the guaranteed total by
+// exactly the missing 100 EUR and permanently blocking confirmation because
+// it no longer matched the supplier's read-back total.
 const SINGLETON_CATEGORIES: ReadonlySet<string> = new Set([
   'rental',
   'delivery',
   'pickup',
   'insurance',
   'deposit',
+  'cleaning',
+  'fuel',
+  'late_fee',
+  'damage_waiver',
+  'overtime',
+  'other',
 ]);
 
 export function dedupeLines(lines: Array<QuoteLineArgs & { turn_index: number }>): PriceLine[] {
@@ -60,7 +76,37 @@ export function dedupeLines(lines: Array<QuoteLineArgs & { turn_index: number }>
     const existing = byKey.get(key);
     if (!existing || l.turn_index >= existing.turn_index) byKey.set(key, l);
   }
-  return Array.from(byKey.values()).map((l) => ({
+  let deduped = Array.from(byKey.values());
+
+  // Second pass, 'discount' only: the buyer's habit of reading the whole
+  // deal back on every turn ("closing at 570, that's a 30 discount" ...
+  // then again two turns later with new wording) produces several discount
+  // LABELS for the one concession that was actually granted once. Two
+  // distinctly-labeled discounts of the identical amount within a call are
+  // overwhelmingly a restatement, not two separate concessions — collapse
+  // to the latest. (Found via the founder's golden BW Lift call: "conclusion
+  // discount" -30 and "all-in package discount" -30 summed to -60 for a
+  // single 600->570 concession, which drove the engine below the confirmed
+  // 570 and blocked confirmation. Distinct discount AMOUNTS still coexist.)
+  const discountByAmount = new Map<string, number[]>(); // amount key -> array positions in `deduped`
+  deduped.forEach((l, i) => {
+    if (l.category !== 'discount') return;
+    const key = `${l.amount_cents}::${l.is_conditional ? 'conditional' : 'live'}`;
+    const positions = discountByAmount.get(key) ?? [];
+    positions.push(i);
+    discountByAmount.set(key, positions);
+  });
+  const dropIndexes = new Set<number>();
+  for (const positions of discountByAmount.values()) {
+    if (positions.length < 2) continue;
+    const latestPos = positions.reduce((a, b) =>
+      deduped[b].turn_index >= deduped[a].turn_index ? b : a,
+    );
+    for (const p of positions) if (p !== latestPos) dropIndexes.add(p);
+  }
+  deduped = deduped.filter((_, i) => !dropIndexes.has(i));
+
+  return deduped.map((l) => ({
     label: l.label,
     category: l.category,
     amount_cents: l.amount_cents,
