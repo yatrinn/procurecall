@@ -34,6 +34,43 @@ function contentToText(content: ChatMessage['content']): string {
     .trim();
 }
 
+const FILLER_START =
+  /^(got it[.!]?\s*|alright[.!]?\s*|okay[.!]?\s*|ok[.!]?\s*|one (second|moment)[.!]?\s*|sure[.!]?\s*)+/i;
+
+function stripLeadingFiller(text: string): string {
+  let t = text.trim();
+  // Peel repeated leading fillers the model still emits despite instructions.
+  for (let i = 0; i < 3; i++) {
+    const next = t.replace(FILLER_START, '').trim();
+    if (next === t) break;
+    t = next;
+  }
+  return t;
+}
+
+function countGotIt(texts: string[]): number {
+  return texts.reduce((n, t) => n + (t.match(/\bgot it\b/gi) ?? []).length, 0);
+}
+
+const ACK_POOL = [
+  'Understood. ',
+  'Right. ',
+  'Thanks. ',
+  'Noted. ',
+  'Okay. ',
+  'Got it. ',
+];
+
+function pickAck(gotItCount: number, isFirstTurn: boolean): string {
+  if (isFirstTurn) return 'Good morning. ';
+  const pool =
+    gotItCount >= 2 ? ACK_POOL.filter((a) => !/^Got it/i.test(a)) : ACK_POOL;
+  // Often skip the spoken ack entirely after the opening — less filler, faster
+  // perceived turn. Speak one about half the time.
+  if (Math.random() < 0.45) return '';
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
 export async function POST(request: Request) {
   const supabase = supabaseAdmin();
 
@@ -78,6 +115,10 @@ export async function POST(request: Request) {
   const newToolRecords: ToolCallRecord[] = [];
   const turnIndex = body.messages.filter((m) => m.role !== 'system').length;
 
+  const alreadyEnded = existingToolCalls.some(
+    (tc) => tc.tool === 'record_outcome' && (tc.result as { ended?: boolean })?.ended,
+  );
+
   const toolCtx: BuyerToolContext = {
     callId,
     specId: spec.id,
@@ -98,10 +139,11 @@ export async function POST(request: Request) {
       supplierName: supplier.name,
       levers: spec.authorized_levers,
     }) +
-    '\n\nVOICE MODE: you are live on a phone call. Keep utterances short and natural. Numbers slowly and clearly. The system may have already voiced a brief acknowledgement for you — NEVER start your reply with filler words (Alright, Okay, Got it, One moment); go straight to substance. Batch all log_quote_line calls for one supplier utterance into a single parallel tool batch.';
+    '\n\nVOICE MODE: you are live on a phone call. Keep utterances short and natural. Numbers slowly and clearly. The system may have already voiced a brief acknowledgement for you — NEVER start your reply with filler words (Alright, Okay, Got it, One moment); go straight to substance. "Got it" at most twice in the whole call. Batch all log_quote_line calls for one supplier utterance into a single parallel tool batch. When the deal is done, call record_outcome and say a short goodbye — then stop. Never ask another question after goodbye.' +
+    (alreadyEnded
+      ? '\n\nThe outcome for this call is already recorded. Say a short goodbye now and do not call any more tools.'
+      : '');
 
-  // Rebuild the conversation for the Responses API from the full history
-  // ElevenLabs sends on every request (stateless on our side).
   const history = body.messages
     .filter((m) => m.role === 'user' || m.role === 'assistant')
     .map((m) => ({
@@ -110,6 +152,9 @@ export async function POST(request: Request) {
     }))
     .filter((m) => m.content.length > 0);
 
+  const priorAssistantText = history.filter((m) => m.role === 'assistant').map((m) => m.content);
+  const gotItSoFar = countGotIt(priorAssistantText);
+
   type Item =
     | { role: 'user' | 'assistant'; content: string }
     | { type: 'function_call'; call_id: string; name: string; arguments: string }
@@ -117,26 +162,25 @@ export async function POST(request: Request) {
 
   const record = (r: ToolCallRecord) => newToolRecords.push(r);
 
-  // Voice latency: conversational turns (no numbers in play) run on the fast
-  // model; anything commercial — figures, prices, booking, leverage — runs on
-  // the strong model. The tool surface is identical either way.
-  const lastUserText = [...history].reverse().find((m) => m.role === 'user')?.content ?? '';
-  const commercialSignal =
-    /\d|euro|price|rate|fee|discount|quote|book|total|deposit|surcharge|liab|insur|percent|cost/i.test(
-      lastUserText,
-    ) || history.length <= 1;
-  const turnModel = commercialSignal ? MODELS.reasoning : MODELS.fast;
+  // Always the voice-pinned model — gpt-5.5 on commercial turns was the
+  // multi-second pause the founder kept hearing between dispatcher and reply.
+  const turnModel = MODELS.voice;
 
   const runBrain = async (): Promise<string> => {
     let items: Item[] = history;
-    for (let hop = 0; hop <= 6; hop++) {
+    let endedThisTurn = alreadyEnded;
+    const maxHops = alreadyEnded ? 1 : 5;
+    for (let hop = 0; hop <= maxHops; hop++) {
+      const forceClose = endedThisTurn || hop === maxHops;
       const response = await openai().responses.create({
         model: turnModel,
         instructions: systemPrompt,
         input: items,
-        tools: toOpenAiTools(tools),
-        tool_choice: hop === 6 ? 'none' : 'auto',
+        tools: forceClose || alreadyEnded ? undefined : toOpenAiTools(tools),
+        tool_choice: forceClose || alreadyEnded ? 'none' : 'auto',
         store: false,
+        // Keep live-phone latency low; commercial judgment still holds on 5.4.
+        reasoning: { effort: 'low' },
       });
       const functionCalls = response.output.filter((o) => o.type === 'function_call');
       if (functionCalls.length === 0) {
@@ -150,7 +194,13 @@ export async function POST(request: Request) {
               .trim(),
           )
           .filter((t) => t.length > 0);
-        return texts[texts.length - 1] ?? '';
+        let text = texts[texts.length - 1] ?? '';
+        text = stripLeadingFiller(text);
+        if (endedThisTurn && text && !/\b(bye|goodbye|talk soon|take care)\b/i.test(text)) {
+          text = `${text.replace(/\s*$/, '')} Bye.`;
+        }
+        if (endedThisTurn && !text) text = 'Thanks — goodbye.';
+        return text;
       }
       const outputs: Item[] = [];
       for (const call of functionCalls) {
@@ -162,6 +212,9 @@ export async function POST(request: Request) {
           turnIndex,
           Date.now() - startedAtMs,
         );
+        if (call.name === 'record_outcome' && (result as { ended?: boolean }).ended) {
+          endedThisTurn = true;
+        }
         outputs.push({
           type: 'function_call',
           call_id: call.call_id,
@@ -175,6 +228,34 @@ export async function POST(request: Request) {
         });
       }
       items = [...items, ...outputs];
+      // Outcome recorded → one forced spoken close, no more tool hops.
+      if (endedThisTurn) {
+        const close = await openai().responses.create({
+          model: turnModel,
+          instructions:
+            systemPrompt +
+            '\n\nThe outcome is recorded. Speak one short closing sentence that includes goodbye. No questions. No tools.',
+          input: items,
+          tool_choice: 'none',
+          store: false,
+          reasoning: { effort: 'low' },
+        });
+        const texts = close.output
+          .filter((o) => o.type === 'message')
+          .map((m) =>
+            m.content
+              .filter((c) => c.type === 'output_text')
+              .map((c) => c.text)
+              .join('')
+              .trim(),
+          )
+          .filter((t) => t.length > 0);
+        let text = stripLeadingFiller(texts[texts.length - 1] ?? 'Thanks — goodbye.');
+        if (!/\b(bye|goodbye|talk soon|take care)\b/i.test(text)) {
+          text = `${text.replace(/\s*$/, '')} Bye.`;
+        }
+        return text;
+      }
     }
     return '';
   };
@@ -203,16 +284,8 @@ export async function POST(request: Request) {
       .eq('id', callId);
   };
 
-  // OpenAI-compatible SSE tuned for time-to-first-AUDIO:
-  // 1. first byte immediately (prevents LLM cascading),
-  // 2. from the second turn on, a short spoken acknowledgement streams at
-  //    once so TTS starts while the tool loop still runs,
-  // 3. then the utterance in sentence-sized chunks.
-  const ACKS = ['Alright. ', 'Okay. ', 'Got it. ', 'One second. '];
-  // Turn 1 (the pickup) gets a natural greeting ack so the caller hears a
-  // voice within a second even while the brain composes the opening.
   const isFirstTurn = history.length <= 1;
-  const speakAck = true;
+  const ack = pickAck(gotItSoFar, isFirstTurn);
   const requestStartedAt = Date.now();
   const encoder = new TextEncoder();
   const id = `chatcmpl-${callId.slice(0, 8)}-${Date.now()}`;
@@ -231,11 +304,7 @@ export async function POST(request: Request) {
           ),
         );
       chunk({ role: 'assistant' });
-      let ack = '';
-      if (speakAck) {
-        ack = isFirstTurn ? 'Good morning. ' : ACKS[Math.floor(Math.random() * ACKS.length)];
-        chunk({ content: ack });
-      }
+      if (ack) chunk({ content: ack });
       const firstContentMs = Date.now() - requestStartedAt;
       const heartbeat = setInterval(() => chunk({}), 2500);
       let finalText = '';
@@ -247,8 +316,10 @@ export async function POST(request: Request) {
         clearInterval(heartbeat);
       }
       if (!finalText) finalText = 'Sorry, could you repeat that?';
+      // Hard cap: if this ack would be a 3rd+ "Got it", drop it from the spoken stream
+      // (already streamed only when pickAck allowed it).
       console.log(
-        `voice-turn call=${callId.slice(0, 8)} model=${turnModel === MODELS.fast ? 'fast' : 'reasoning'} first_content_ms=${firstContentMs} brain_ms=${Date.now() - requestStartedAt}`,
+        `voice-turn call=${callId.slice(0, 8)} model=voice first_content_ms=${firstContentMs} brain_ms=${Date.now() - requestStartedAt} got_it_prior=${gotItSoFar}`,
       );
       const parts = finalText.match(/[^.!?]+[.!?]*\s*/g) ?? [finalText];
       for (const part of parts) chunk({ content: part });

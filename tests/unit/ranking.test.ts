@@ -91,6 +91,12 @@ describe('rankQuotes', () => {
     expect(result.entries.find((e) => e.quote_id === 'outlier')?.reason_codes).toContain(
       'BELOW_BENCHMARK_FLAG',
     );
+    expect(result.entries.find((e) => e.quote_id === 'conditional')?.reason_codes).toContain(
+      'PREFERRED_OVER_FLAGGED_CHEAPER',
+    );
+    expect(result.entries.find((e) => e.quote_id === 'conditional')?.reason_codes).not.toContain(
+      'LOWEST_EXPECTED_TOTAL',
+    );
   });
 
   it('recommends nothing when every eligible quote is below the benchmark', () => {

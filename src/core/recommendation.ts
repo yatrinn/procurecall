@@ -4,6 +4,9 @@ import { supabaseAdmin } from '@/integrations/supabase-server';
 import { openai, MODELS } from '@/integrations/openai-server';
 import { rankQuotes, RANKING_ENGINE_VERSION, type RankableQuote, type RankingResult } from './ranking';
 import { formatCents } from './price-engine';
+import { collapseActiveQuoteLines } from './quote-pricing';
+import { explanationClaimsLowestWhileCheaperExists } from './explanation-guards';
+import type { QuoteLineArgs } from '@/negotiation/types';
 
 /**
  * Computes and persists the deterministic recommendation for a spec. The
@@ -49,6 +52,68 @@ export interface RecommendationRow {
   engine_version: string;
 }
 
+const CODE_PLAIN: Record<string, string> = {
+  NOT_SUPPLIER_CONFIRMED: 'total was never verbally confirmed',
+  AVAILABILITY_NOT_CONFIRMED: 'availability was not confirmed',
+  QUOTE_EXPIRED: 'quote validity has lapsed',
+  NO_TRANSCRIPT_EVIDENCE: 'no transcript-backed line items',
+  NO_ENGINE_TOTAL: 'no engine total',
+  DEPOSIT_EXCEEDS_TOLERANCE: 'deposit exceeds authorized tolerance',
+  LINE_SUM_MISMATCH: 'listed fees do not add up to the displayed total',
+  BELOW_BENCHMARK_FLAG: 'far below the public market benchmark (flagged, never auto-preferred)',
+  UNPRICED_CATEGORIES: 'some mandatory categories were never priced',
+  HIGH_CONDITIONAL_EXPOSURE: 'conditional fees exceed a quarter of the guaranteed cost',
+  LOWEST_EXPECTED_TOTAL: 'lowest expected total among eligible quotes',
+  COMPLETE_ITEMIZED_QUOTE: 'complete itemized quote',
+  AVAILABILITY_CONFIRMED: 'confirmed availability',
+  SUPPLIER_CONFIRMED_TOTAL: 'supplier confirmed the total verbally',
+  NEGOTIATED_IMPROVEMENT: 'price improved during the call',
+  NO_DEPOSIT_REQUIRED: 'no deposit',
+  LOWEST_CASH_REQUIRED: 'lowest cash required',
+  PREFERRED_OVER_FLAGGED_CHEAPER:
+    'preferred over a cheaper quote that sits far below the market and cannot be auto-preferred',
+};
+
+function sumGuaranteedLines(
+  lines: Array<{
+    category: string;
+    amount_cents: number | null;
+    is_conditional: boolean;
+    unit: string | null;
+    label: string;
+    is_mandatory: boolean;
+    condition_trigger: string | null;
+    transcript_ref: { turn_index?: number } | null;
+  }>,
+): number {
+  const collapsed = collapseActiveQuoteLines(
+    lines.map((l) => ({
+      label: l.label,
+      category: l.category as QuoteLineArgs['category'],
+      amount_cents: l.amount_cents ?? 0,
+      unit: (l.unit ?? 'flat') as QuoteLineArgs['unit'],
+      is_mandatory: l.is_mandatory,
+      is_conditional: l.is_conditional,
+      condition_trigger: l.condition_trigger,
+      turn_index: l.transcript_ref?.turn_index ?? 0,
+    })),
+  );
+  let sum = 0;
+  for (const l of collapsed) {
+    if (l.is_conditional) continue;
+    if (l.category === 'deposit') continue;
+    if (l.category === 'discount') {
+      sum -= Math.abs(l.amount_cents);
+      continue;
+    }
+    // Flat mandatory components only — per_day conditionals already skipped.
+    if (l.unit === 'flat' || l.unit === 'percent_of_rental') {
+      sum += l.amount_cents;
+    }
+  }
+  return sum;
+}
+
 export async function getOrComputeRecommendation(specId: string): Promise<RecommendationRow | null> {
   const supabase = supabaseAdmin();
 
@@ -60,20 +125,42 @@ export async function getOrComputeRecommendation(specId: string): Promise<Recomm
         'id, call_id, supplier_id, status, availability_status, validity_until, is_benchmark_outlier, missing_information, total_before_negotiation_cents, total_after_negotiation_cents, currency, price_breakdown',
       )
       .eq('job_spec_id', specId)
-      // Expired quotes are superseded reference data (e.g. a reset before a
-      // re-run) — keep them in the DB for audit, never in the public ranking.
       .neq('status', 'expired'),
     supabase.from('suppliers').select('id, name'),
   ]);
   if (!spec || !quotes || quotes.length === 0) return null;
 
+  const callIds = (quotes as QuoteRow[]).map((q) => q.call_id);
+  const { data: sessions } = await supabase
+    .from('call_sessions')
+    .select('id, outcome')
+    .in('id', callIds);
+  const confirmedByCall = new Map<string, number | null>();
+  for (const s of sessions ?? []) {
+    const outcome = s.outcome as {
+      total_net_cents?: number | null;
+      supplier_confirmed_total?: boolean | null;
+    } | null;
+    confirmedByCall.set(
+      s.id,
+      outcome?.supplier_confirmed_total && typeof outcome.total_net_cents === 'number'
+        ? outcome.total_net_cents
+        : null,
+    );
+  }
+
   const lineCounts = new Map<string, number>();
+  const lineSums = new Map<string, number>();
   for (const q of quotes as QuoteRow[]) {
-    const { count } = await supabase
+    const { data: lines, count } = await supabase
       .from('quote_lines')
-      .select('*', { count: 'exact', head: true })
+      .select(
+        'label, amount_cents, unit, is_mandatory, is_conditional, condition_trigger, category, transcript_ref',
+        { count: 'exact' },
+      )
       .eq('quote_id', q.id);
     lineCounts.set(q.id, count ?? 0);
+    lineSums.set(q.id, sumGuaranteedLines(lines ?? []));
   }
 
   const supplierName = (id: string) =>
@@ -99,16 +186,27 @@ export async function getOrComputeRecommendation(specId: string): Promise<Recomm
     total_before_negotiation_cents: q.total_before_negotiation_cents,
     total_after_negotiation_cents: q.total_after_negotiation_cents,
     line_count: lineCounts.get(q.id) ?? 0,
+    line_sum_cents: lineSums.get(q.id) ?? null,
+    supplier_confirmed_total_cents: confirmedByCall.get(q.call_id) ?? null,
   }));
 
   const depositTolerance =
-    ((spec.spec as { fields?: { deposit_tolerance?: string } }).fields?.deposit_tolerance as string | undefined) ?? null;
+    ((spec.spec as { fields?: { deposit_tolerance?: string } }).fields?.deposit_tolerance as
+      | string
+      | undefined) ?? null;
 
   const inputHash = createHash('sha256')
     .update(
       JSON.stringify(
         rankable
-          .map((r) => [r.quote_id, r.status, r.expected_case_cents, r.total_after_negotiation_cents, r.line_count])
+          .map((r) => [
+            r.quote_id,
+            r.status,
+            r.expected_case_cents,
+            r.total_after_negotiation_cents,
+            r.line_count,
+            r.line_sum_cents,
+          ])
           .sort(),
       ),
     )
@@ -178,6 +276,13 @@ export async function getOrComputeRecommendation(specId: string): Promise<Recomm
   return inserted as RecommendationRow;
 }
 
+/**
+ * Rejects an explanation that claims "lowest total" (or similar) while a
+ * lower expected total exists in the ranked set. Pure — used by writeExplanation
+ * and by unit tests.
+ */
+export { explanationClaimsLowestWhileCheaperExists } from './explanation-guards';
+
 async function writeExplanation(
   ranking: RankingResult,
   quotes: RankableQuote[],
@@ -198,21 +303,22 @@ async function writeExplanation(
     .filter((e) => e.rank !== null)
     .map((e) => {
       const q = byId.get(e.quote_id)!;
-      return `rank ${e.rank}: ${e.supplier_name} — expected ${formatCents(q.expected_case_cents ?? 0, currency)} net, worst case ${formatCents(q.worst_case_cents ?? 0, currency)}, deposit ${formatCents(q.refundable_deposit_cents ?? 0, currency)}, codes: ${e.reason_codes.join(', ')}${e.negotiated_delta_cents ? `, negotiated down by ${formatCents(e.negotiated_delta_cents, currency)}` : ''}`;
+      const plain = e.reason_codes.map((c) => CODE_PLAIN[c] ?? c).join('; ');
+      return `rank ${e.rank}: ${e.supplier_name} — expected ${formatCents(q.expected_case_cents ?? 0, currency)} net, worst case ${formatCents(q.worst_case_cents ?? 0, currency)}, deposit ${formatCents(q.refundable_deposit_cents ?? 0, currency)}, reasons: ${plain}${e.negotiated_delta_cents ? `, negotiated down by ${formatCents(e.negotiated_delta_cents, currency)}` : ''}`;
     })
     .join('\n');
+
+  const preferredOverFlagged = recommended.reason_codes.includes('PREFERRED_OVER_FLAGGED_CHEAPER');
 
   try {
     const response = await openai().responses.create({
       model: MODELS.fast,
-      instructions:
-        'You write the plain-language explanation under a procurement ranking that a deterministic engine already computed. You NEVER change or question the order — you explain it. Two to four short sentences, US English, operational tone, no marketing words. Cite money amounts EXACTLY as they appear in the input — never reformat, rescale, or re-derive them. If a rank-1 exists, start with why it wins per the codes (lowest expected total, complete quote, no deposit...). Mention the strongest runner-up difference and any risk flags in plain words.',
+      instructions: preferredOverFlagged
+        ? 'You write the plain-language explanation under a procurement ranking that a deterministic engine already computed. You NEVER change the order. Two to four short sentences, US English, operational tone, no marketing words, never emit raw enum codes like BELOW_BENCHMARK_FLAG. The recommended quote is NOT the cheapest: a cheaper quote sits far below the market benchmark and is flagged, so it cannot be preferred. Lead with that reason. Never say the winner has the "lowest" total. Cite money amounts EXACTLY as they appear in the input.'
+        : 'You write the plain-language explanation under a procurement ranking that a deterministic engine already computed. You NEVER change or question the order — you explain it. Two to four short sentences, US English, operational tone, no marketing words. Never emit raw enum codes (write plain language only). Cite money amounts EXACTLY as they appear in the input — never reformat, rescale, or re-derive them. If a rank-1 exists, start with why it wins. Mention the strongest runner-up difference and any risk flags in plain words.',
       input: [{ role: 'user', content: `Computed ranking:\n${facts}` }],
     });
     const text = response.output_text?.trim() ?? '';
-    // Numeric guard: the model only explains. Any amount it cites must be an
-    // engine fact or a pairwise difference of engine facts — a rescale like
-    // 795.00 → 79.50 can never pass. Otherwise: deterministic fallback.
     const factNumbers = (facts.match(/\d+\.\d{2}/g) ?? []).map((n) => Math.round(parseFloat(n) * 100));
     const allowed = new Set<number>(factNumbers);
     for (const a of factNumbers) {
@@ -222,8 +328,14 @@ async function writeExplanation(
     }
     const cited = (text.match(/\d+\.\d{2}/g) ?? []).map((n) => Math.round(parseFloat(n) * 100));
     const invalid = cited.filter((n) => !allowed.has(n));
-    if (!text || invalid.length > 0) {
-      console.error('explanation rejected by numeric guard:', { invalid });
+    const hasRawCode = /[A-Z]{3,}_[A-Z0-9_]+/.test(text);
+    if (
+      !text ||
+      invalid.length > 0 ||
+      hasRawCode ||
+      explanationClaimsLowestWhileCheaperExists(text, ranking, quotes)
+    ) {
+      console.error('explanation rejected:', { invalid, hasRawCode });
       return fallbackExplanation(ranking, byId, currency);
     }
     return text;
@@ -234,6 +346,8 @@ async function writeExplanation(
 
 const CODE_SENTENCES: Record<string, string> = {
   LOWEST_EXPECTED_TOTAL: 'the lowest expected total',
+  PREFERRED_OVER_FLAGGED_CHEAPER:
+    'a cheaper quote flagged as far below the market (never auto-preferred)',
   COMPLETE_ITEMIZED_QUOTE: 'a complete itemized quote',
   AVAILABILITY_CONFIRMED: 'confirmed availability',
   SUPPLIER_CONFIRMED_TOTAL: 'a total the supplier confirmed verbally',
@@ -247,9 +361,23 @@ function fallbackExplanation(
   byId: Map<string, RankableQuote>,
   currency: string,
 ): string {
-  const top = ranking.entries.find((e) => e.rank === 1);
+  const top = ranking.entries.find((e) => e.quote_id === ranking.recommended_quote_id);
   if (!top) return 'No quote passed the hard constraints.';
   const q = byId.get(top.quote_id)!;
+  const flaggedCheaper = ranking.entries.find(
+    (e) =>
+      e.rank !== null &&
+      e.reason_codes.includes('BELOW_BENCHMARK_FLAG') &&
+      (byId.get(e.quote_id)?.expected_case_cents ?? Infinity) < (q.expected_case_cents ?? Infinity),
+  );
+  if (flaggedCheaper) {
+    const fq = byId.get(flaggedCheaper.quote_id)!;
+    return (
+      `${top.supplier_name} is recommended at ${formatCents(q.expected_case_cents ?? 0, currency)} expected net. ` +
+      `${flaggedCheaper.supplier_name} is cheaper at ${formatCents(fq.expected_case_cents ?? 0, currency)}, ` +
+      `but that quote sits far below the public market benchmark and is flagged — never auto-preferred.`
+    );
+  }
   const reasons = top.reason_codes
     .map((c) => CODE_SENTENCES[c])
     .filter((x): x is string => !!x);

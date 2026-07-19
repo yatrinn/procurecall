@@ -8,7 +8,7 @@ import { z } from 'zod';
  * decision emits a reason code that the UI and the explanation cite.
  */
 
-export const RANKING_ENGINE_VERSION = 'rank-1.1';
+export const RANKING_ENGINE_VERSION = 'rank-1.2';
 
 export interface RankableQuote {
   quote_id: string;
@@ -30,6 +30,10 @@ export interface RankableQuote {
   total_before_negotiation_cents: number | null;
   total_after_negotiation_cents: number | null;
   line_count: number;
+  /** Sum of active guaranteed lines minus discounts; must equal guaranteed_net. */
+  line_sum_cents?: number | null;
+  /** Supplier-confirmed total from the call outcome, when present. */
+  supplier_confirmed_total_cents?: number | null;
 }
 
 export const ReasonCode = z.enum([
@@ -40,6 +44,7 @@ export const ReasonCode = z.enum([
   'NO_TRANSCRIPT_EVIDENCE',
   'NO_ENGINE_TOTAL',
   'DEPOSIT_EXCEEDS_TOLERANCE',
+  'LINE_SUM_MISMATCH',
   // risk flags (demote, never auto-prefer)
   'BELOW_BENCHMARK_FLAG',
   'UNPRICED_CATEGORIES',
@@ -52,6 +57,7 @@ export const ReasonCode = z.enum([
   'NEGOTIATED_IMPROVEMENT',
   'NO_DEPOSIT_REQUIRED',
   'LOWEST_CASH_REQUIRED',
+  'PREFERRED_OVER_FLAGGED_CHEAPER',
 ]);
 export type ReasonCodeT = z.infer<typeof ReasonCode>;
 
@@ -114,6 +120,25 @@ export function rankQuotes(
         : Number.MAX_SAFE_INTEGER;
     if ((q.refundable_deposit_cents ?? 0) > tolerance) {
       codes.push('DEPOSIT_EXCEEDS_TOLERANCE');
+      eligible = false;
+    }
+    // Displayed guaranteed net must equal the sum of its own listed lines
+    // (minus discounts) and, when present, the supplier-confirmed total.
+    if (
+      q.guaranteed_net_cents !== null &&
+      q.line_sum_cents !== null &&
+      q.line_sum_cents !== undefined &&
+      q.line_sum_cents !== q.guaranteed_net_cents
+    ) {
+      codes.push('LINE_SUM_MISMATCH');
+      eligible = false;
+    } else if (
+      q.guaranteed_net_cents !== null &&
+      q.supplier_confirmed_total_cents !== null &&
+      q.supplier_confirmed_total_cents !== undefined &&
+      q.supplier_confirmed_total_cents !== q.guaranteed_net_cents
+    ) {
+      codes.push('LINE_SUM_MISMATCH');
       eligible = false;
     }
 
@@ -208,11 +233,20 @@ export function rankQuotes(
   const recommended = recommendable[0] ?? null;
   if (recommended) {
     const q0 = byId.get(recommended.quote_id)!;
-    const lowestAmongRecommendable = recommendable.every(
-      (e) =>
-        (byId.get(e.quote_id)!.expected_case_cents ?? Infinity) >= (q0.expected_case_cents ?? Infinity),
-    );
-    if (lowestAmongRecommendable) recommended.reason_codes.push('LOWEST_EXPECTED_TOTAL');
+    const cheapestEligible = eligibles.reduce((best, e) => {
+      const q = byId.get(e.quote_id)!;
+      const b = byId.get(best.quote_id)!;
+      return (q.expected_case_cents ?? Infinity) < (b.expected_case_cents ?? Infinity) ? e : best;
+    }, eligibles[0]);
+    const isAbsolutelyLowest =
+      (q0.expected_case_cents ?? Infinity) <=
+      (byId.get(cheapestEligible.quote_id)!.expected_case_cents ?? Infinity);
+    if (isAbsolutelyLowest) {
+      recommended.reason_codes.push('LOWEST_EXPECTED_TOTAL');
+    } else if (isBelowBenchmark(cheapestEligible)) {
+      // Cheaper quote exists but is flagged — that is why this one wins.
+      recommended.reason_codes.push('PREFERRED_OVER_FLAGGED_CHEAPER');
+    }
     const lowestCash = recommendable.every(
       (e) => (byId.get(e.quote_id)!.cash_required_cents ?? Infinity) >= (q0.cash_required_cents ?? Infinity),
     );

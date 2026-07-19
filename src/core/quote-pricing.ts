@@ -67,6 +67,13 @@ const SINGLETON_CATEGORIES: ReadonlySet<string> = new Set([
   'other',
 ]);
 
+/** Categories that are often the same package component restated under a new name. */
+const PACKAGE_COMPONENT_CATEGORIES: ReadonlySet<string> = new Set([
+  'other',
+  'surcharge',
+  'accessory',
+]);
+
 export function collapseActiveQuoteLines(
   lines: Array<QuoteLineArgs & { turn_index: number }>,
 ): Array<QuoteLineArgs & { turn_index: number }> {
@@ -79,6 +86,31 @@ export function collapseActiveQuoteLines(
     if (!existing || l.turn_index >= existing.turn_index) byKey.set(key, l);
   }
   let collapsed = Array.from(byKey.values());
+
+  // Cross-category package restatement: the same 10 EUR logged once as
+  // "package split component" (surcharge) and again as "other mandatory
+  // package charge" (other) must collapse to the latest turn. Matching on
+  // label alone cannot catch this — categories differ, amounts match.
+  const packageByAmount = new Map<string, number[]>();
+  collapsed.forEach((l, i) => {
+    if (!PACKAGE_COMPONENT_CATEGORIES.has(l.category)) return;
+    if (l.is_conditional) return;
+    const key = `${l.amount_cents}::live`;
+    const positions = packageByAmount.get(key) ?? [];
+    positions.push(i);
+    packageByAmount.set(key, positions);
+  });
+  const dropPackage = new Set<number>();
+  for (const positions of packageByAmount.values()) {
+    if (positions.length < 2) continue;
+    const categories = new Set(positions.map((p) => collapsed[p].category));
+    if (categories.size < 2) continue; // same-category already handled by singleton
+    const latestPos = positions.reduce((a, b) =>
+      collapsed[b].turn_index >= collapsed[a].turn_index ? b : a,
+    );
+    for (const p of positions) if (p !== latestPos) dropPackage.add(p);
+  }
+  collapsed = collapsed.filter((_, i) => !dropPackage.has(i));
 
   // Second pass, 'discount' only: the buyer's habit of reading the whole
   // deal back on every turn ("closing at 570, that's a 30 discount" ...

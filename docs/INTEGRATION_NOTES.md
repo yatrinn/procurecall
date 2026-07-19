@@ -128,7 +128,8 @@ Base: `https://api.elevenlabs.io`, auth header `xi-api-key: <key>`. Docs pages: 
 
 - `GET https://api.openai.com/v1/models` with `Authorization: Bearer <key>` → 200.
 - **Pinned models** (dated snapshots available on this key, chosen for reproducibility):
-  - Reasoning / extraction / buyer negotiation: `gpt-5.5-2026-04-23`
+  - Reasoning / extraction / text-tier buyer negotiation: `gpt-5.5-2026-04-23`
+  - Voice-tier buyer brain (live phone latency): `gpt-5.4-2026-03-05`
   - Cheap roles (supplier simulation turns, validator scans): `gpt-5.4-mini-2026-03-17`
 - **Structured outputs** (docs: /docs/guides/structured-outputs): use the Responses API.
   - SDK: `openai` 6.48.0. `client.responses.parse({ model, input, text: { format:

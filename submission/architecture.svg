@@ -9,12 +9,12 @@
   </defs>
   <rect width="980" height="620" fill="#EDEFEA"/>
   <text x="30" y="36" font-size="20" font-weight="bold" fill="#14181A">ProcureCall  architecture</text>
-  <text x="30" y="56" fill="#5A6570">one negotiation brain · two transports · numbers only via verified tools</text>
+  <text x="30" y="56" fill="#5A6570">one negotiation brain ï¿½ two transports ï¿½ numbers only via verified tools</text>
 
   <!-- Browser -->
   <rect x="30" y="86" width="200" height="150" fill="#F7F8F5" stroke="#5A6570" rx="4"/>
   <text x="45" y="108" font-weight="bold" fill="#14181A">Browser</text>
-  <text x="45" y="128" fill="#5A6570">intake · confirm</text>
+  <text x="45" y="128" fill="#5A6570">intake ï¿½ confirm</text>
   <text x="45" y="144" fill="#5A6570">live board (tapes)</text>
   <text x="45" y="160" fill="#5A6570">decision room</text>
   <text x="45" y="176" fill="#5A6570">/demo replay</text>
@@ -28,7 +28,7 @@
   <rect x="305" y="122" width="300" height="66" fill="#EDEFEA" stroke="#0E5F55" rx="4"/>
   <text x="318" y="140" font-weight="bold" fill="#0E5F55">Truth layer + lever gate</text>
   <text x="318" y="156" fill="#5A6570">getVerifiedLeverage(): 6 checks or typed error</text>
-  <text x="318" y="172" fill="#5A6570">unauthorized lever Ò tool absent from session</text>
+  <text x="318" y="172" fill="#5A6570">unauthorized lever ï¿½ tool absent from session</text>
 
   <rect x="305" y="196" width="145" height="76" fill="#EDEFEA" stroke="#5A6570" rx="4"/>
   <text x="318" y="214" font-weight="bold" fill="#14181A">Buyer brain</text>
@@ -39,21 +39,21 @@
   <rect x="460" y="196" width="145" height="76" fill="#EDEFEA" stroke="#5A6570" rx="4"/>
   <text x="473" y="214" font-weight="bold" fill="#14181A">Supplier engine</text>
   <text x="473" y="230" fill="#5A6570">private policy:</text>
-  <text x="473" y="246" fill="#5A6570">price sheet · floor ·</text>
+  <text x="473" y="246" fill="#5A6570">price sheet ï¿½ floor ï¿½</text>
   <text x="473" y="262" fill="#5A6570">ladder (code-enforced)</text>
 
   <rect x="305" y="284" width="300" height="80" fill="#EDEFEA" stroke="#5A6570" rx="4"/>
   <text x="318" y="302" font-weight="bold" fill="#14181A">Deterministic layer</text>
   <text x="318" y="318" fill="#5A6570">price engine: guaranteed | conditional | deposit | tax</text>
-  <text x="318" y="334" fill="#5A6570">ranking rank-1.0 with reason codes · fingerprint sha256</text>
+  <text x="318" y="334" fill="#5A6570">ranking rank-1.0 with reason codes ï¿½ fingerprint sha256</text>
   <text x="318" y="350" fill="#5A6570">post-call validator: claims vs tool calls</text>
 
   <!-- Supabase -->
   <rect x="680" y="86" width="270" height="130" fill="#F7F8F5" stroke="#5A6570" rx="4"/>
   <text x="695" y="108" font-weight="bold" fill="#14181A">Supabase (RLS deny-all)</text>
   <text x="695" y="128" fill="#5A6570">job_specs (versioned, fingerprint)</text>
-  <text x="695" y="144" fill="#5A6570">call_sessions · quotes · quote_lines*</text>
-  <text x="695" y="160" fill="#5A6570">negotiation_events · validator_findings</text>
+  <text x="695" y="144" fill="#5A6570">call_sessions ï¿½ quotes ï¿½ quote_lines*</text>
+  <text x="695" y="160" fill="#5A6570">negotiation_events ï¿½ validator_findings</text>
   <text x="695" y="176" fill="#5A6570">storage: call audio (signed URLs)</text>
   <text x="695" y="196" fill="#0E5F55">*a line without a transcript ref cannot persist</text>
 
@@ -61,15 +61,15 @@
   <rect x="680" y="246" width="270" height="130" fill="#F7F8F5" stroke="#5A6570" rx="4"/>
   <text x="695" y="268" font-weight="bold" fill="#14181A">ElevenLabs Agents</text>
   <text x="695" y="288" fill="#5A6570">intake agent (interview, dyn. variables)</text>
-  <text x="695" y="304" fill="#5A6570">buyer voice agent ’ custom LLM =</text>
+  <text x="695" y="304" fill="#5A6570">buyer voice agent ï¿½ custom LLM =</text>
   <text x="695" y="320" fill="#5A6570">/api/llm/v1 (same brain, same tools)</text>
-  <text x="695" y="336" fill="#5A6570">caps: 240 s max · silence hangup</text>
+  <text x="695" y="336" fill="#5A6570">caps: 240 s max ï¿½ silence hangup</text>
   <text x="695" y="356" fill="#5A6570">post-call: transcript + recording pulled</text>
 
   <!-- OpenAI + Tavily -->
   <rect x="290" y="404" width="330" height="60" fill="#F7F8F5" stroke="#5A6570" rx="4"/>
   <text x="305" y="426" font-weight="bold" fill="#14181A">OpenAI (pinned snapshots, strict outputs)</text>
-  <text x="305" y="444" fill="#5A6570">gpt-5.5-2026-04-23 · gpt-5.4-mini-2026-03-17</text>
+  <text x="305" y="444" fill="#5A6570">gpt-5.5-2026-04-23 ï¿½ gpt-5.4-mini-2026-03-17</text>
 
   <!-- flows -->
   <line x1="230" y1="130" x2="290" y2="130" stroke="#5A6570" marker-end="url(#arr)"/>

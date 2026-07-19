@@ -88,6 +88,47 @@ describe('dedupeLines', () => {
     const early = lines.find((x) => x.label === 'early delivery');
     expect(early?.amount_cents).toBe(4000);
   });
+
+  it("REGRESSION (BW Lift 580→570): same 10 EUR as surcharge then other collapses to one", () => {
+    // Real golden call: "package split component" 10 (surcharge, turn 9) and
+    // "other mandatory package charge" 10 (other, turn 15) are the same fee.
+    // Label-keyed dedup cannot catch this — categories differ. Result without
+    // the fix: 500+30+30+30+10+10-30 = 580 against the confirmed 570.
+    const raw = [
+      l({ label: 'package rental base', category: 'rental', amount_cents: 50000, unit: 'flat', turn_index: 15 }),
+      l({ label: 'delivery', category: 'delivery', amount_cents: 3000, unit: 'flat', turn_index: 15 }),
+      l({ label: 'pickup', category: 'pickup', amount_cents: 3000, unit: 'flat', turn_index: 15 }),
+      l({ label: 'liability reduction', category: 'insurance', amount_cents: 3000, unit: 'flat', turn_index: 15 }),
+      l({ label: 'package split component', category: 'surcharge', amount_cents: 1000, unit: 'flat', turn_index: 9 }),
+      l({
+        label: 'other mandatory package charge',
+        category: 'other',
+        amount_cents: 1000,
+        unit: 'flat',
+        turn_index: 15,
+      }),
+      l({
+        label: 'all-in package discount',
+        category: 'discount',
+        amount_cents: 3000,
+        unit: 'flat',
+        turn_index: 15,
+        is_mandatory: false,
+      }),
+    ];
+    const lines = dedupeLines(raw);
+    expect(lines.filter((x) => x.category === 'surcharge' || x.category === 'other')).toHaveLength(1);
+    const vertical = getVertical('equipment-rental-stuttgart');
+    const totals = computeQuoteTotals({
+      vertical,
+      fields: { duration_business_days: 5 },
+      lines: raw,
+      concessions: [],
+      modelClaimedTotalCents: 57000,
+    });
+    expect(totals.totalAfterCents).toBe(57000);
+    expect(totals.engineDisagreesWithModel).toBe(false);
+  });
 });
 
 describe('computeQuoteTotals — totals never aggregate or go negative', () => {

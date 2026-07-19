@@ -25,6 +25,7 @@ const CODE_TEXT: Record<ReasonCodeT, string> = {
   NO_TRANSCRIPT_EVIDENCE: 'no transcript-backed line items',
   NO_ENGINE_TOTAL: 'the price engine could not compute a total',
   DEPOSIT_EXCEEDS_TOLERANCE: 'deposit exceeds what you authorized',
+  LINE_SUM_MISMATCH: 'listed fees do not add up to the displayed total',
   BELOW_BENCHMARK_FLAG: 'far below the public market benchmark (flagged, never auto-preferred)',
   UNPRICED_CATEGORIES: 'some mandatory cost categories were never priced',
   HIGH_CONDITIONAL_EXPOSURE: 'conditional fees exceed a quarter of the guaranteed cost',
@@ -35,6 +36,7 @@ const CODE_TEXT: Record<ReasonCodeT, string> = {
   NEGOTIATED_IMPROVEMENT: 'price improved during the call',
   NO_DEPOSIT_REQUIRED: 'no deposit required',
   LOWEST_CASH_REQUIRED: 'lowest cash required',
+  PREFERRED_OVER_FLAGGED_CHEAPER: 'preferred over a cheaper quote that sits far below the market',
 };
 
 interface LineRow {
