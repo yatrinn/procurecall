@@ -9,7 +9,7 @@ import { config } from 'dotenv';
 config({ path: '.env.local', quiet: true });
 
 import { createClient } from '@supabase/supabase-js';
-import { computeQuoteTotals } from '../src/core/quote-pricing';
+import { computeQuoteTotals, collapseActiveQuoteLines } from '../src/core/quote-pricing';
 import { getVertical } from '../src/config/verticals';
 import type { QuoteLineArgs, ToolCallRecord } from '../src/negotiation/types';
 
@@ -77,7 +77,8 @@ async function main() {
       continue;
     }
 
-    const rows = lines.map((line) => ({
+    const active = collapseActiveQuoteLines(lines);
+    const rows = active.map((line) => ({
       quote_id: quote.id,
       call_id: quote.call_id,
       label: line.label,
@@ -91,7 +92,7 @@ async function main() {
     }));
     const { error: insErr } = await supabase.from('quote_lines').insert(rows);
     if (insErr) throw new Error(`insert failed for quote ${quote.id}: ${insErr.message}`);
-    console.log(`quote ${quote.id.slice(0, 8)} (${quote.status}): restored ${rows.length} lines`);
+    console.log(`quote ${quote.id.slice(0, 8)} (${quote.status}): restored ${rows.length} lines (from ${lines.length} tool logs)`);
 
     // Recompute deterministic totals from the restored lines.
     const { data: events } = await supabase
@@ -103,7 +104,7 @@ async function main() {
     const totals = computeQuoteTotals({
       vertical: getVertical(spec.vertical_slug),
       fields: (spec.spec as { fields: Record<string, unknown> }).fields,
-      lines,
+      lines: active,
       concessions: (events ?? []).map((e) => ({
         category_hint: e.concession_type,
         amount_before_cents: e.amount_before_cents,

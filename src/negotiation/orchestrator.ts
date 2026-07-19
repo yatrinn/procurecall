@@ -12,7 +12,7 @@ import {
   type SupplierState,
 } from './supplier-engine';
 import type { Outcome, QuoteLineArgs, ToolCallRecord, TranscriptTurn } from './types';
-import { computeQuoteTotals } from '@/core/quote-pricing';
+import { computeQuoteTotals, collapseActiveQuoteLines } from '@/core/quote-pricing';
 import type { VerticalConfig } from '@/config/vertical-schema';
 
 /**
@@ -389,7 +389,10 @@ export async function persistQuote(input: {
   if (error) throw new Error(`quote insert failed: ${error.message}`);
 
   if (input.loggedLines.length > 0) {
-    const rows = input.loggedLines.map((line) => ({
+    // One active line per category (last confirmed wins). Restatements across
+    // turns must never appear as separate evidence-rail rows.
+    const active = collapseActiveQuoteLines(input.loggedLines);
+    const rows = active.map((line) => ({
       quote_id: quote.id,
       call_id: input.callId,
       label: line.label,

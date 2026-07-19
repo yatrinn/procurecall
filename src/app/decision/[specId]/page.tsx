@@ -7,6 +7,8 @@ import { getOrComputeRecommendation } from '@/core/recommendation';
 import { getVertical } from '@/config/verticals';
 import type { VerticalConfig } from '@/config/vertical-schema';
 import type { ReasonCodeT } from '@/core/ranking';
+import { collapseActiveQuoteLines } from '@/core/quote-pricing';
+import type { QuoteLineArgs } from '@/negotiation/types';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Decision room | ProcureCall' };
@@ -81,11 +83,56 @@ export default async function DecisionPage({ params }: { params: Promise<{ specI
   if (recommendedQuote) {
     const { data } = await supabase
       .from('quote_lines')
-      .select('id, quote_id, call_id, label, amount_cents, unit, is_conditional, category, transcript_ref')
+      .select(
+        'id, quote_id, call_id, label, amount_cents, unit, is_conditional, category, transcript_ref, is_mandatory, condition_trigger',
+      )
       .eq('quote_id', recommendedQuote.id)
       .order('created_at', { ascending: true });
-    recommendedLines = (data as LineRow[]) ?? [];
+    const raw =
+      (data as Array<LineRow & { is_mandatory?: boolean; condition_trigger?: string | null }>) ?? [];
+    // One active line per category — last confirmed turn wins.
+    const collapsed = collapseActiveQuoteLines(
+      raw.map((l) => ({
+        label: l.label,
+        category: l.category as QuoteLineArgs['category'],
+        amount_cents: l.amount_cents ?? 0,
+        unit: (l.unit ?? 'flat') as QuoteLineArgs['unit'],
+        is_mandatory: l.is_mandatory ?? true,
+        is_conditional: l.is_conditional,
+        condition_trigger: l.condition_trigger ?? null,
+        turn_index: l.transcript_ref?.turn_index ?? 0,
+      })),
+    );
+    recommendedLines = collapsed.map((c) => {
+      const match =
+        raw.find(
+          (r) =>
+            r.category === c.category &&
+            r.is_conditional === c.is_conditional &&
+            (r.transcript_ref?.turn_index ?? 0) === c.turn_index &&
+            (r.amount_cents ?? 0) === c.amount_cents,
+        ) ?? raw.find((r) => r.category === c.category && r.is_conditional === c.is_conditional);
+      return {
+        id: match?.id ?? `${c.category}-${c.turn_index}`,
+        quote_id: recommendedQuote.id,
+        call_id: match?.call_id ?? recommendedQuote.call_id,
+        label: c.label,
+        amount_cents: c.amount_cents,
+        unit: c.unit,
+        is_conditional: c.is_conditional,
+        category: c.category,
+        transcript_ref: {
+          call_id: match?.call_id ?? recommendedQuote.call_id,
+          turn_index: c.turn_index,
+        },
+      };
+    });
   }
+
+  const flaggedCheapest =
+    !recommendedEntry
+      ? ranked.find((e) => e.reason_codes.includes('BELOW_BENCHMARK_FLAG'))
+      : null;
 
   // Public hygiene: only sessions that produced a real structured outcome
   // appear here; smoke tests and never-started calls stay out.
@@ -187,8 +234,23 @@ export default async function DecisionPage({ params }: { params: Promise<{ specI
             </section>
           ) : (
             <section className="mt-10 max-w-2xl">
-              <h2 className="text-lg font-medium">Nothing is recommended</h2>
-              <p className="mt-2 text-sm text-steel">{recommendation.explanation}</p>
+              {flaggedCheapest ? (
+                <>
+                  <p className="text-sm text-flag">Flagged — review required before selecting</p>
+                  <h2 className="mt-1 text-lg font-medium">Nothing is recommended</h2>
+                  <p className="mt-2 text-sm text-steel">
+                    {flaggedCheapest.supplier_name} is the cheapest quote on the board, but it sits
+                    far below the public market benchmark. That flag means never auto-preferred —
+                    a price this far under the field usually means something is missing. Review the
+                    reasons on each quote below before selecting.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h2 className="text-lg font-medium">Nothing is recommended</h2>
+                  <p className="mt-2 text-sm text-steel">{recommendation.explanation}</p>
+                </>
+              )}
             </section>
           )}
 

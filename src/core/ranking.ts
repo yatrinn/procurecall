@@ -8,7 +8,7 @@ import { z } from 'zod';
  * decision emits a reason code that the UI and the explanation cite.
  */
 
-export const RANKING_ENGINE_VERSION = 'rank-1.0';
+export const RANKING_ENGINE_VERSION = 'rank-1.1';
 
 export interface RankableQuote {
   quote_id: string;
@@ -161,9 +161,18 @@ export function rankQuotes(
     };
   });
 
-  // Deterministic order: clean eligibles first, then demoted eligibles; both
-  // sorted by expected case, worst case, cash required, then supplier name.
+  // Deterministic order:
+  //   0. clean eligibles
+  //   1. demoted for other risk (conditional exposure, unpriced categories)
+  //   2. below-benchmark outliers last — "flagged, never auto-preferred"
+  // Within a tier: expected case, worst case, cash required, then name.
   const byId = new Map(quotes.map((q) => [q.quote_id, q]));
+  const isBelowBenchmark = (e: RankedEntry) => e.reason_codes.includes('BELOW_BENCHMARK_FLAG');
+  const tier = (e: RankedEntry): number => {
+    if (!e.demoted) return 0;
+    if (isBelowBenchmark(e)) return 2;
+    return 1;
+  };
   const sortKey = (e: RankedEntry): [number, number, number, string] => {
     const q = byId.get(e.quote_id)!;
     return [
@@ -176,7 +185,9 @@ export function rankQuotes(
   const eligibles = entries
     .filter((e) => e.eligible)
     .sort((a, b) => {
-      if (a.demoted !== b.demoted) return a.demoted ? 1 : -1;
+      const ta = tier(a);
+      const tb = tier(b);
+      if (ta !== tb) return ta - tb;
       const ka = sortKey(a);
       const kb = sortKey(b);
       for (let i = 0; i < ka.length; i++) {
@@ -189,18 +200,28 @@ export function rankQuotes(
   eligibles.forEach((e, i) => {
     e.rank = i + 1;
   });
-  if (eligibles[0]) {
-    eligibles[0].reason_codes.push('LOWEST_EXPECTED_TOTAL');
-    const q0 = byId.get(eligibles[0].quote_id)!;
-    const lowestCash = eligibles.every(
+
+  // Never auto-prefer a below-benchmark quote. Recommend the best eligible that
+  // is not an outlier; if every eligible is flagged below the field, recommend
+  // nothing — the UI must say so in those words.
+  const recommendable = eligibles.filter((e) => !isBelowBenchmark(e));
+  const recommended = recommendable[0] ?? null;
+  if (recommended) {
+    const q0 = byId.get(recommended.quote_id)!;
+    const lowestAmongRecommendable = recommendable.every(
+      (e) =>
+        (byId.get(e.quote_id)!.expected_case_cents ?? Infinity) >= (q0.expected_case_cents ?? Infinity),
+    );
+    if (lowestAmongRecommendable) recommended.reason_codes.push('LOWEST_EXPECTED_TOTAL');
+    const lowestCash = recommendable.every(
       (e) => (byId.get(e.quote_id)!.cash_required_cents ?? Infinity) >= (q0.cash_required_cents ?? Infinity),
     );
-    if (lowestCash) eligibles[0].reason_codes.push('LOWEST_CASH_REQUIRED');
+    if (lowestCash) recommended.reason_codes.push('LOWEST_CASH_REQUIRED');
   }
 
   return {
     engine_version: RANKING_ENGINE_VERSION,
     entries,
-    recommended_quote_id: eligibles[0]?.quote_id ?? null,
+    recommended_quote_id: recommended?.quote_id ?? null,
   };
 }

@@ -121,7 +121,11 @@ export async function getOrComputeRecommendation(specId: string): Promise<Recomm
     .order('computed_at', { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (existing && (existing.ranking as { input_hash?: string })?.input_hash === inputHash) {
+  if (
+    existing &&
+    (existing.ranking as { input_hash?: string })?.input_hash === inputHash &&
+    existing.engine_version === RANKING_ENGINE_VERSION
+  ) {
     return existing as RecommendationRow;
   }
 
@@ -181,6 +185,12 @@ async function writeExplanation(
 ): Promise<string> {
   const recommended = ranking.entries.find((e) => e.quote_id === ranking.recommended_quote_id);
   if (!recommended) {
+    const flaggedCheapest = ranking.entries
+      .filter((e) => e.eligible && e.reason_codes.includes('BELOW_BENCHMARK_FLAG'))
+      .sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99))[0];
+    if (flaggedCheapest) {
+      return `Nothing is recommended. ${flaggedCheapest.supplier_name} is the cheapest quote on the board, but it sits far below the public market benchmark and is flagged for review — never auto-preferred. Review the reasons on each quote below before selecting.`;
+    }
     return 'No quote passed the hard constraints. Review the reasons on each quote below; nothing is recommended.';
   }
   const byId = new Map(quotes.map((q) => [q.quote_id, q]));

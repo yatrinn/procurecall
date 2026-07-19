@@ -64,6 +64,57 @@ describe('rankQuotes', () => {
     expect(cheap?.reason_codes).toContain('BELOW_BENCHMARK_FLAG');
   });
 
+  it('never recommends a below-benchmark quote even when every alternative is also demoted', () => {
+    const result = rankQuotes(
+      [
+        quote({
+          quote_id: 'outlier',
+          supplier_name: 'Outlier',
+          expected_case_cents: 50000,
+          cash_required_cents: 59500,
+          is_benchmark_outlier: true,
+        }),
+        quote({
+          quote_id: 'conditional',
+          supplier_name: 'Conditional',
+          expected_case_cents: 58000,
+          guaranteed_net_cents: 58000,
+          conditional_cents: 15000,
+          cash_required_cents: 69020,
+        }),
+      ],
+      { depositTolerance: 'any', now: NOW },
+    );
+    expect(result.recommended_quote_id).toBe('conditional');
+    expect(result.entries.find((e) => e.quote_id === 'conditional')?.rank).toBe(1);
+    expect(result.entries.find((e) => e.quote_id === 'outlier')?.rank).toBe(2);
+    expect(result.entries.find((e) => e.quote_id === 'outlier')?.reason_codes).toContain(
+      'BELOW_BENCHMARK_FLAG',
+    );
+  });
+
+  it('recommends nothing when every eligible quote is below the benchmark', () => {
+    const result = rankQuotes(
+      [
+        quote({
+          quote_id: 'a',
+          supplier_name: 'A',
+          expected_case_cents: 40000,
+          is_benchmark_outlier: true,
+        }),
+        quote({
+          quote_id: 'b',
+          supplier_name: 'B',
+          expected_case_cents: 45000,
+          is_benchmark_outlier: true,
+        }),
+      ],
+      { depositTolerance: 'any', now: NOW },
+    );
+    expect(result.recommended_quote_id).toBeNull();
+    expect(result.entries.every((e) => e.rank !== null)).toBe(true);
+  });
+
   it('hard constraint failures make a quote ineligible with explicit codes', () => {
     const result = rankQuotes(
       [

@@ -67,7 +67,9 @@ const SINGLETON_CATEGORIES: ReadonlySet<string> = new Set([
   'other',
 ]);
 
-export function dedupeLines(lines: Array<QuoteLineArgs & { turn_index: number }>): PriceLine[] {
+export function collapseActiveQuoteLines(
+  lines: Array<QuoteLineArgs & { turn_index: number }>,
+): Array<QuoteLineArgs & { turn_index: number }> {
   const byKey = new Map<string, QuoteLineArgs & { turn_index: number }>();
   for (const l of lines) {
     const key = SINGLETON_CATEGORIES.has(l.category)
@@ -76,7 +78,7 @@ export function dedupeLines(lines: Array<QuoteLineArgs & { turn_index: number }>
     const existing = byKey.get(key);
     if (!existing || l.turn_index >= existing.turn_index) byKey.set(key, l);
   }
-  let deduped = Array.from(byKey.values());
+  let collapsed = Array.from(byKey.values());
 
   // Second pass, 'discount' only: the buyer's habit of reading the whole
   // deal back on every turn ("closing at 570, that's a 30 discount" ...
@@ -88,8 +90,8 @@ export function dedupeLines(lines: Array<QuoteLineArgs & { turn_index: number }>
   // discount" -30 and "all-in package discount" -30 summed to -60 for a
   // single 600->570 concession, which drove the engine below the confirmed
   // 570 and blocked confirmation. Distinct discount AMOUNTS still coexist.)
-  const discountByAmount = new Map<string, number[]>(); // amount key -> array positions in `deduped`
-  deduped.forEach((l, i) => {
+  const discountByAmount = new Map<string, number[]>();
+  collapsed.forEach((l, i) => {
     if (l.category !== 'discount') return;
     const key = `${l.amount_cents}::${l.is_conditional ? 'conditional' : 'live'}`;
     const positions = discountByAmount.get(key) ?? [];
@@ -100,13 +102,16 @@ export function dedupeLines(lines: Array<QuoteLineArgs & { turn_index: number }>
   for (const positions of discountByAmount.values()) {
     if (positions.length < 2) continue;
     const latestPos = positions.reduce((a, b) =>
-      deduped[b].turn_index >= deduped[a].turn_index ? b : a,
+      collapsed[b].turn_index >= collapsed[a].turn_index ? b : a,
     );
     for (const p of positions) if (p !== latestPos) dropIndexes.add(p);
   }
-  deduped = deduped.filter((_, i) => !dropIndexes.has(i));
+  collapsed = collapsed.filter((_, i) => !dropIndexes.has(i));
+  return collapsed;
+}
 
-  return deduped.map((l) => ({
+export function dedupeLines(lines: Array<QuoteLineArgs & { turn_index: number }>): PriceLine[] {
+  return collapseActiveQuoteLines(lines).map((l) => ({
     label: l.label,
     category: l.category,
     amount_cents: l.amount_cents,
