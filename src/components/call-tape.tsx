@@ -207,16 +207,17 @@ export function CallTape({
         </div>
       ) : null}
 
-      {/* transcript */}
+      {/* transcript: always the full conversation, even while the tape is
+          still revealing. Reading along must not depend on the replay clock. */}
       <details className="mt-3" open={activeTurn !== null}>
         <summary className="cursor-pointer text-xs text-steel hover:text-ink">
-          Transcript ({turns.length} turns)
+          Transcript ({allTurns.length} turns)
         </summary>
         <ol
           ref={listRef}
           className="mt-2 max-h-72 space-y-2 overflow-y-auto border-l-2 border-line pl-4 text-sm"
         >
-          {turns.map((t) => (
+          {allTurns.map((t) => (
             <li
               key={t.turn_index}
               data-turn={t.turn_index}
