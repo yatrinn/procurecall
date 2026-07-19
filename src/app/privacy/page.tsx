@@ -1,6 +1,6 @@
 import { Shell } from '@/components/shell';
 
-export const metadata = { title: 'Privacy — ProcureCall' };
+export const metadata = { title: 'Privacy | ProcureCall' };
 
 export default function PrivacyPage() {
   return (
@@ -42,17 +42,17 @@ export default function PrivacyPage() {
             <h2 className="font-medium">Data we process</h2>
             <ul className="mt-2 list-disc space-y-1.5 pl-5 text-steel">
               <li>
-                <span className="text-ink">Request content you enter</span> — text, uploads, or
+                <span className="text-ink">Request content you enter:</span> text, uploads, or
                 voice notes you submit when starting a request. Used only to run the demo
                 workflow (structuring the brief, simulated or live negotiation runs).
               </li>
               <li>
-                <span className="text-ink">Technical logs</span> — standard hosting and server
+                <span className="text-ink">Technical logs:</span> standard hosting and server
                 logs (e.g. IP address, time, requested URL) needed to operate, secure, and rate-
                 limit the service.
               </li>
               <li>
-                <span className="text-ink">Call session data</span> — if you start a live or voice
+                <span className="text-ink">Call session data:</span> if you start a live or voice
                 run, transcripts, tool events, and (where applicable) recordings are stored so
                 the board and decision room can show evidence.
               </li>

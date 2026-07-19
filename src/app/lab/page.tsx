@@ -3,7 +3,7 @@ import { supabaseAdmin } from '@/integrations/supabase-server';
 import { TruthConsole } from './truth-console';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Evaluation lab — ProcureCall' };
+export const metadata = { title: 'Evaluation lab | ProcureCall' };
 
 /**
  * The evaluation lab shows REAL numbers from real runs. Latest result per
@@ -106,7 +106,7 @@ export default async function LabPage() {
         <p className="mt-1 max-w-2xl text-xs text-steel">
           This runs the real buyer brain with its real tool surface in a sandbox without
           confirmed quotes. Watch the verification tool return a typed error and the agent
-          refuse — live, in about ten seconds.
+          refuse, live, in about ten seconds.
         </p>
         <div className="mt-3">
           <TruthConsole />
@@ -170,7 +170,7 @@ export default async function LabPage() {
         <h2 className="text-sm font-medium">Negotiation performance on held-out market scenarios</h2>
         <p className="mt-1 max-w-2xl text-xs text-steel">
           Eight supplier behaviors the policy never saw during development. This demonstrates
-          the architecture is testable and the policy generalizes — it is not evidence of
+          the architecture is testable and the policy generalizes. It is not evidence of
           real-world savings.
         </p>
         {heldOut ? (
@@ -199,16 +199,16 @@ export default async function LabPage() {
                   {heldOut.results.profiles.map((p) => (
                     <tr key={p.profile} className="border-b border-line">
                       <td className="figure py-1.5 pr-3 text-xs">{p.profile}</td>
-                      <td className="py-1.5 pr-3">{p.outcome_type?.replaceAll('_', ' ') ?? '—'}</td>
+                      <td className="py-1.5 pr-3">{p.outcome_type?.replaceAll('_', ' ') ?? '-'}</td>
                       <td className={`py-1.5 pr-3 ${p.no_violations ? 'text-verified' : 'text-flag'}`}>
                         {p.no_violations ? 'yes' : 'NO'}
                       </td>
-                      <td className="py-1.5 pr-3">{p.itemization === null ? '—' : p.itemization ? 'yes' : 'no'}</td>
+                      <td className="py-1.5 pr-3">{p.itemization === null ? '-' : p.itemization ? 'yes' : 'no'}</td>
                       <td className="py-1.5 pr-3">
-                        {p.engine_agreement === null ? '—' : p.engine_agreement ? 'yes' : 'no (quote held as draft)'}
+                        {p.engine_agreement === null ? '-' : p.engine_agreement ? 'yes' : 'no (quote held as draft)'}
                       </td>
                       <td className="figure py-1.5">
-                        {p.quote_total_cents !== null ? `${(p.quote_total_cents / 100).toFixed(2)} EUR` : '—'}
+                        {p.quote_total_cents !== null ? `${(p.quote_total_cents / 100).toFixed(2)} EUR` : '-'}
                       </td>
                     </tr>
                   ))}
@@ -227,7 +227,7 @@ export default async function LabPage() {
       <section className="mt-12 border-t border-line pt-6">
         <h2 className="text-sm font-medium">Post-call validator</h2>
         <p className="mt-1 max-w-2xl text-xs text-steel">
-          Every call is scanned for commercial claims; code — not the model — decides whether a
+          Every call is scanned for commercial claims; code, not the model, decides whether a
           tool call supported each one.
         </p>
         <p className="mt-3 text-sm">

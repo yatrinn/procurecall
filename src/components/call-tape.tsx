@@ -3,13 +3,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 /**
- * The Call Tape — the product's signature element (DESIGN_SYSTEM.md).
+ * The Call Tape. the product's signature element (DESIGN_SYSTEM.md).
  *
  * A horizontal tape is the literal spine of a call: turn blocks laid out on a
  * time axis, and every extracted fee, disclosure, friction event, verified
  * leverage use, and outcome pinned at the moment it happened. Clicking a pin
  * highlights the transcript turn; when a recording exists, it also seeks the
- * audio to that second. Verified leverage pins are drawn in --verified — the
+ * audio to that second. Verified leverage pins are drawn in --verified. the
  * only decorative-free use of that color in the app.
  */
 
@@ -111,7 +111,7 @@ export function CallTape({
 
   return (
     <div className="min-w-0">
-      {/* The tape itself — scroll horizontally on narrow screens instead of blowing the page width */}
+      {/* The tape itself. scroll horizontally on narrow screens instead of blowing the page width */}
       <div
         className="relative mt-6 h-[92px] min-w-[280px] overflow-x-auto sm:overflow-visible"
         role="group"
@@ -161,7 +161,7 @@ export function CallTape({
               className="group absolute z-[1] -translate-x-1/2"
               style={{ left: pos(pin.at_ms), top: LANE_TOP[lane] }}
               aria-label={`${pin.label}${pin.amount_label ? ` ${pin.amount_label}` : ''} at ${formatMs(pin.at_ms)}`}
-              title={`${pin.label}${pin.amount_label ? ` — ${pin.amount_label}` : ''} · ${formatMs(pin.at_ms)}`}
+              title={`${pin.label}${pin.amount_label ? `. ${pin.amount_label}` : ''} · ${formatMs(pin.at_ms)}`}
             >
               <span className="flex items-center gap-1 rounded-sm bg-ground/80 px-0.5">
                 <span

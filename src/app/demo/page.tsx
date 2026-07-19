@@ -8,7 +8,7 @@ import { ReplayClient, RunLive, type ReplaySession } from './replay-client';
 import type { TapeTurn } from '@/components/call-tape';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Demo — ProcureCall' };
+export const metadata = { title: 'Demo | ProcureCall' };
 
 const BEHAVIOR_LABELS: Record<string, string> = {
   transparent_premium: 'transparent premium',
@@ -111,7 +111,7 @@ export default async function DemoPage() {
       ]}
     >
       <div className="max-w-3xl">
-        <p className="text-sm text-steel">Public demo — no login</p>
+        <p className="text-sm text-steel">Public demo. No login.</p>
         <h1 className="display mt-2 text-3xl sm:text-4xl">
           Same job.
           <br />
@@ -119,8 +119,8 @@ export default async function DemoPage() {
         </h1>
         <p className="mt-4 max-w-2xl text-base text-steel sm:text-sm">
           Brief: {vertical.demoRequestSummary}. Hit play to hear the three negotiations and
-          watch each fee appear on the tape when it was said. Then open the decision room —
-          ranked totals, with a jump back to the exact moment for every number.
+          watch each fee appear on the tape when it was said. Then open the decision room for
+          ranked totals. Every number jumps back to the exact moment it was spoken.
         </p>
         <ol className="mt-5 max-w-xl list-decimal space-y-1 pl-5 text-sm text-steel">
           <li>Play the recorded run below</li>
@@ -131,7 +131,7 @@ export default async function DemoPage() {
           <p className="mt-4 text-sm">
             <span className="text-steel">Locked request ID </span>
             <span className="figure text-verified">{fingerprint.slice(0, 12)}</span>
-            <span className="text-steel"> — same on every call in this run.</span>
+            <span className="text-steel">. Same on every call in this run.</span>
           </p>
         ) : null}
       </div>
@@ -147,7 +147,7 @@ export default async function DemoPage() {
               <Link href={decisionHref} className="underline underline-offset-4 hover:text-ink">
                 Open the decision room
               </Link>
-              <span className="text-steel"> — who won, why, and the evidence behind each number.</span>
+              <span className="text-steel">. Who won, why, and the evidence behind each number.</span>
             </p>
           ) : null}
         </section>

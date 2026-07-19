@@ -9,10 +9,10 @@ import type { VerticalConfig } from '@/config/vertical-schema';
 import type { ReasonCodeT } from '@/core/ranking';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Decision room — ProcureCall' };
+export const metadata = { title: 'Decision room | ProcureCall' };
 
 function eur(cents: number | null | undefined, currency = 'EUR'): string {
-  if (cents === null || cents === undefined) return '—';
+  if (cents === null || cents === undefined) return '-';
   return `${(cents / 100).toFixed(2)} ${currency}`;
 }
 
@@ -23,7 +23,7 @@ const CODE_TEXT: Record<ReasonCodeT, string> = {
   NO_TRANSCRIPT_EVIDENCE: 'no transcript-backed line items',
   NO_ENGINE_TOTAL: 'the price engine could not compute a total',
   DEPOSIT_EXCEEDS_TOLERANCE: 'deposit exceeds what you authorized',
-  BELOW_BENCHMARK_FLAG: 'far below the public market benchmark — flagged, never auto-preferred',
+  BELOW_BENCHMARK_FLAG: 'far below the public market benchmark (flagged, never auto-preferred)',
   UNPRICED_CATEGORIES: 'some mandatory cost categories were never priced',
   HIGH_CONDITIONAL_EXPOSURE: 'conditional fees exceed a quarter of the guaranteed cost',
   LOWEST_EXPECTED_TOTAL: 'lowest expected total',
@@ -124,7 +124,7 @@ export default async function DecisionPage({ params }: { params: Promise<{ specI
           {recommendedEntry && recommendedQuote ? (
             <section className="mt-10 max-w-3xl">
               <p className="text-sm text-steel">
-                Recommended — ranked by engine rules ({recommendation.engine_version})
+                Recommended, ranked by engine rules ({recommendation.engine_version})
               </p>
               <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-2 sm:gap-x-6">
                 <h2 className="display text-xl sm:text-2xl">{recommendedEntry.supplier_name}</h2>
@@ -146,7 +146,7 @@ export default async function DecisionPage({ params }: { params: Promise<{ specI
               {/* Evidence rail: total → component fees → tape moments */}
               <div className="mt-6 border-l-2 border-verified/50 pl-5">
                 <p className="text-xs text-steel">
-                  Evidence rail — every component links to the second it was spoken
+                  Evidence rail: every component links to the second it was spoken
                 </p>
                 <ul className="mt-2 space-y-1.5">
                   {recommendedLines.map((line) => (
@@ -166,7 +166,7 @@ export default async function DecisionPage({ params }: { params: Promise<{ specI
                         {line.unit === 'per_day' ? '/day' : ''}
                       </a>
                       <span className="figure text-xs text-steel">
-                        turn {line.transcript_ref?.turn_index ?? '—'}
+                        turn {line.transcript_ref?.turn_index ?? '-'}
                       </span>
                     </li>
                   ))}
@@ -218,7 +218,7 @@ export default async function DecisionPage({ params }: { params: Promise<{ specI
                     );
                     return (
                       <tr key={entry.quote_id} className={`border-b border-line ${entry.rank === null ? 'text-steel' : ''}`}>
-                        <td className="figure py-2 pr-3">{entry.rank ?? '—'}</td>
+                        <td className="figure py-2 pr-3">{entry.rank ?? '-'}</td>
                         <td className="py-2 pr-3">
                           <a href={`/board/${specId}#call=${q.call_id}&turn=0`} className="underline-offset-4 hover:underline">
                             {entry.supplier_name}
@@ -232,7 +232,7 @@ export default async function DecisionPage({ params }: { params: Promise<{ specI
                           {entry.negotiated_delta_cents && entry.negotiated_delta_cents > 0 ? (
                             <span className="text-verified">−{eur(entry.negotiated_delta_cents, currency)}</span>
                           ) : (
-                            '—'
+                            '-'
                           )}
                         </td>
                         <td className="max-w-[260px] py-2 text-xs">
@@ -255,7 +255,7 @@ export default async function DecisionPage({ params }: { params: Promise<{ specI
               </table>
             </div>
             <p className="mt-2 text-xs text-steel">
-              A refundable deposit is tied-up capital, not a cost — it affects cash required, never the rank.
+              A refundable deposit is tied-up capital, not a cost. It affects cash required, never the rank.
             </p>
           </section>
         </>
@@ -269,8 +269,11 @@ export default async function DecisionPage({ params }: { params: Promise<{ specI
               <li key={s.id}>
                 <a href={`/board/${specId}#call=${s.id}&turn=0`} className="underline-offset-4 hover:underline">
                   {supplierName(s.supplier_id)}
-                </a>{' '}
-                — {s.outcome_type?.replaceAll('_', ' ') ?? s.failure_state ?? s.status}
+                </a>
+                <span className="text-steel">
+                  {' '}
+                  ({s.outcome_type?.replaceAll('_', ' ') ?? s.failure_state ?? s.status})
+                </span>
                 {s.outcome && typeof s.outcome === 'object' && 'summary' in s.outcome
                   ? `: ${(s.outcome as { summary?: string }).summary ?? ''}`
                   : ''}
@@ -329,8 +332,8 @@ function BenchmarkDerivation({
       . Flag threshold {Math.round(vertical.redFlagRules.belowBenchmarkMedianFraction * 100)}% ={' '}
       <span className="figure">
         {threshold.toFixed(2)} {currency}/day
-      </span>{' '}
-      —{' '}
+      </span>
+      .{' '}
       {flagged ? (
         <span className="text-flag">below the field; flagged, never auto-preferred.</span>
       ) : (

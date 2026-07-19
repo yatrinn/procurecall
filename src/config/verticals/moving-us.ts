@@ -1,13 +1,13 @@
 import type { VerticalConfig } from '../vertical-schema';
 
 /**
- * Second vertical: US residential moving — the configuration proof. Swapping
+ * Second vertical: US residential moving (the configuration proof). Swapping
  * from equipment rental to moving changes THIS OBJECT, not code: spec
  * taxonomy, benchmarks, red-flag rules, levers, interview outline.
  */
 export const movingUs: VerticalConfig = {
   slug: 'moving-us',
-  label: 'Residential moving — US',
+  label: 'Residential moving (US)',
   currency: 'USD',
   vatRate: 0,
   taxLabel: 'Sales tax n/a (labor)',
@@ -196,7 +196,7 @@ export const movingUs: VerticalConfig = {
     medianDailyRateNet: null,
     references: [
       {
-        source: 'FMCSA — Protect Your Move (consumer guidance)',
+        source: 'FMCSA. Protect Your Move (consumer guidance)',
         url: 'https://www.fmcsa.dot.gov/protect-your-move',
         item: 'Federal guidance: gather multiple estimates; sight-unseen phone quotes are unreliable',
         daily_rate_net: null,
@@ -204,7 +204,7 @@ export const movingUs: VerticalConfig = {
         retrieved_at: '2026-07-19T00:30:00Z',
       },
       {
-        source: 'moveBuddha — moving cost data',
+        source: 'moveBuddha. moving cost data',
         url: 'https://www.movebuddha.com/moving-cost-calculator/',
         item: 'Public moving cost calculator / market data',
         daily_rate_net: null,
@@ -220,9 +220,9 @@ export const movingUs: VerticalConfig = {
   },
   interviewOutline: [
     'Where are you moving from, and where to?',
-    'How large is the home — and any pianos, safes, or oversized items?',
+    'How large is the home. and any pianos, safes, or oversized items?',
     'Stairs or elevator at each end? Any long carry from door to truck?',
-    'Do you pack yourself, or should the crew pack — everything or fragile only?',
+    'Do you pack yourself, or should the crew pack. everything or fragile only?',
     'What is the move date, and how flexible is it?',
     'Valuation: free released-value coverage or full value protection?',
     'Deposit tolerance?',

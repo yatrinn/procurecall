@@ -84,7 +84,7 @@ export function ReplayClient({ sessions }: { sessions: ReplaySession[] }) {
           {formatMs(Math.min(clock, maxMs))} / {formatMs(maxMs)} · {SPEED}× speed
         </span>
         <span className="rounded-sm border border-line bg-paper px-2 py-0.5 text-xs text-steel">
-          Verified replay — recorded live run, nothing synthesized
+          Verified replay. Recorded live run, nothing synthesized.
         </span>
       </div>
 
@@ -174,7 +174,7 @@ export function RunLive() {
     } else {
       setResetNote(
         body.removed_specs === 0
-          ? 'Nothing to remove — the demo is clean.'
+          ? 'Nothing to remove. The demo is clean.'
           : `Removed ${body.removed_specs} visitor run(s). The recorded replay is untouched.`,
       );
     }
@@ -188,14 +188,14 @@ export function RunLive() {
           {busy ? 'Preparing…' : 'Run it live now'}
         </PrimaryButton>
         <QuietButton onClick={voiceRun} disabled={busy}>
-          Voice call — you play the dispatcher
+          Voice call (you play the dispatcher)
         </QuietButton>
         <QuietButton onClick={reset} disabled={busy}>
           Reset demo data
         </QuietButton>
       </div>
       <p className="mt-2 max-w-xl text-xs text-steel">
-        Live run: same brief, new calls — wording and outcomes can differ from the recording.
+        Live run: same brief, new calls. Wording and outcomes can differ from the recording.
         Voice option: the buyer agent talks; you answer as the dispatcher. Sessions cap at
         4 minutes.
       </p>

@@ -149,7 +149,7 @@ export function ConfirmForm({
           What the agent may do on your behalf
         </h2>
         <p className="mt-1 max-w-xl text-sm text-steel">
-          Unauthorized levers are not merely discouraged — the agent does not receive the
+          Unauthorized levers are not merely discouraged. The agent does not receive the
           corresponding capability at all.
         </p>
         <div className="mt-4 space-y-3">
@@ -213,7 +213,7 @@ export function ConfirmForm({
               </QuietButton>
             </>
           ) : (
-            <QuietButton onClick={startEdit}>Edit — creates a new version</QuietButton>
+            <QuietButton onClick={startEdit}>Edit (creates a new version)</QuietButton>
           )}
         </div>
       </div>
@@ -238,7 +238,7 @@ export function ConfirmForm({
                     {spec.spec_fingerprint.slice(0, 12)}
                   </span>
                 ) : (
-                  <span className="text-steel">— computed on confirmation</span>
+                  <span className="text-steel">(computed on confirmation)</span>
                 )}
               </dd>
             </div>
@@ -306,7 +306,7 @@ function FieldEditor({
       );
     case 'number':
       return (
-        <Field label={field.unit ? `${label} — ${field.unit}` : label} hint={field.hint} error={error}>
+        <Field label={field.unit ? `${label} (${field.unit})` : label} hint={field.hint} error={error}>
           <input
             type="number"
             className={monoInputClass}
@@ -325,7 +325,7 @@ function FieldEditor({
             onChange={(e) => onChange(e.target.value === '' ? null : e.target.value === 'true')}
             disabled={disabled}
           >
-            <option value="">—</option>
+            <option value="">-</option>
             <option value="true">Yes</option>
             <option value="false">No</option>
           </select>
@@ -382,7 +382,7 @@ function FieldEditor({
             onChange={(e) => onChange(e.target.value || null)}
             disabled={disabled}
           >
-            <option value="">—</option>
+            <option value="">-</option>
             {(field.options ?? []).map((o) => (
               <option key={o} value={o}>
                 {o.replaceAll('_', ' ')}

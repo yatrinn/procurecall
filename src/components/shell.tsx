@@ -13,7 +13,7 @@ const FOOTER_LINKS: Array<{ href: string; label: string }> = [
 
 /**
  * Application shell: quiet header, alignment over borders.
- * Nav renders only routes that exist — no dead links, ever.
+ * Nav renders only routes that exist. No dead links.
  * Mobile: wraps instead of forcing a single desktop row (which caused
  * horizontal overflow on phones).
  */
@@ -43,7 +43,7 @@ export function Shell({
           <div className="flex w-full items-center gap-2 text-xs text-steel sm:ml-auto sm:w-auto">
             <span className="inline-block h-2 w-2 shrink-0 rounded-full bg-hivis" aria-hidden />
             <span className="sm:hidden">Simulated market</span>
-            <span className="hidden sm:inline">Simulated market — no real businesses are called</span>
+            <span className="hidden sm:inline">Simulated market. No real businesses are called.</span>
           </div>
         </div>
       </header>
@@ -54,7 +54,7 @@ export function Shell({
             <div className="max-w-xs">
               <p className="display text-sm tracking-tight text-ink">ProcureCall</p>
               <p className="mt-1 text-sm text-steel">
-                AI buyer for equipment rental — one brief, itemized quotes, every fee on the tape.
+                Equipment rental procurement. One brief, itemized quotes, every fee on the tape.
               </p>
             </div>
             <div className="flex flex-wrap gap-x-12 gap-y-6">

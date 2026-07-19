@@ -97,7 +97,7 @@ interface BoardState {
 }
 
 function eur(cents: number | null | undefined): string {
-  if (cents === null || cents === undefined) return '—';
+  if (cents === null || cents === undefined) return '-';
   return `${(cents / 100).toFixed(2)} EUR`;
 }
 
@@ -234,7 +234,7 @@ export function BoardClient({
               {starting ? 'Calling the market…' : `Call ${supplierIds.length} suppliers`}
             </PrimaryButton>
             <span className="text-sm text-steel">
-              Text negotiation — same brain and tools as voice.
+              Text negotiation. Same brain and tools as voice.
             </span>
           </>
         ) : null}
@@ -249,7 +249,7 @@ export function BoardClient({
         {anyRunning ? (
           <span className="flex items-center gap-2 text-sm text-steel">
             <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-hivis" aria-hidden />
-            Calls in progress — fees pin as they are spoken.
+            Calls in progress. Fees pin as they are spoken.
           </span>
         ) : null}
       </div>
@@ -396,11 +396,11 @@ function TapeSection({
             {quote.status === 'confirmed' ? 'confirmed by supplier' : quote.status}
           </span>
           {quote.is_benchmark_outlier ? (
-            <span className="text-flag">far below market benchmark — flagged for review</span>
+            <span className="text-flag">far below market benchmark (flagged for review)</span>
           ) : null}
           {quote.missing_information.length > 0 ? (
             <span className="text-flag">
-              unpriced: {quote.missing_information.join(', ')} — an incomplete quote is not a
+              unpriced: {quote.missing_information.join(', ')}. An incomplete quote is not a
               cheap quote
             </span>
           ) : null}
@@ -428,13 +428,13 @@ function StatusBadge({ session }: { session: SessionDto }) {
   }
   if (session.failure_state === 'interrupted_no_outcome') {
     return (
-      <span className="text-xs text-flag">interrupted — partial data kept</span>
+      <span className="text-xs text-flag">interrupted; partial data kept</span>
     );
   }
   if (session.status === 'failed') {
     return (
       <span className="text-xs text-flag">
-        failed{session.failure_state ? ` — ${session.failure_state}` : ''}
+        failed{session.failure_state ? `. ${session.failure_state}` : ''}
       </span>
     );
   }

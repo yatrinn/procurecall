@@ -3,7 +3,7 @@ import { Shell } from '@/components/shell';
 import { IntakePanel } from './intake-panel';
 import { getVertical, verticals, DEFAULT_VERTICAL_SLUG } from '@/config/verticals';
 
-export const metadata = { title: 'New request — ProcureCall' };
+export const metadata = { title: 'New request | ProcureCall' };
 
 export default async function RequestPage({
   searchParams,
@@ -35,7 +35,7 @@ export default async function RequestPage({
         </div>
         <h1 className="display mt-2 text-2xl sm:text-3xl">New request</h1>
         <p className="mt-3 max-w-xl text-sm text-steel">
-          Describe what you need — type it, speak it, or drop a voice note. You review the brief
+          Describe what you need: type it, speak it, or drop a voice note. You review the brief
           before any supplier is called.
         </p>
         <div className="mt-8">

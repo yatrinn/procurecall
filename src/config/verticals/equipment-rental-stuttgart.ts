@@ -8,7 +8,7 @@ import type { VerticalConfig } from '../vertical-schema';
  */
 export const equipmentRentalStuttgart: VerticalConfig = {
   slug: 'equipment-rental-stuttgart',
-  label: 'Equipment rental — Stuttgart region',
+  label: 'Equipment rental, Stuttgart region',
   currency: 'EUR',
   vatRate: 0.19,
   taxLabel: 'VAT 19%',

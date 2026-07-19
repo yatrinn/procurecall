@@ -28,7 +28,7 @@ export async function POST(request: Request) {
       .gte('created_at', hourAgo);
     if ((count ?? 0) >= HOURLY_CALL_CAP) {
       return NextResponse.json(
-        { error: 'Hourly call capacity reached. Try again later — the recorded replay on /demo always works.' },
+        { error: 'Hourly call capacity reached. Try again later. The recorded replay on /demo always works.' },
         { status: 429 },
       );
     }

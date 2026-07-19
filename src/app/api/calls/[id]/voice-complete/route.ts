@@ -161,7 +161,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       const effectiveOutcome: Outcome =
         outcome ?? {
           type: 'quote',
-          summary: 'Interrupted call — partial quote assembled from the fees captured before the call ended.',
+          summary: 'Interrupted call. Partial quote assembled from the fees captured before the call ended.',
           supplier_confirmed_total: false,
           total_net_cents: null,
           availability_confirmed: null,

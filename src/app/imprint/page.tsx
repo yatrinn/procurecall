@@ -1,6 +1,6 @@
 import { Shell } from '@/components/shell';
 
-export const metadata = { title: 'Imprint — ProcureCall' };
+export const metadata = { title: 'Imprint | ProcureCall' };
 
 export default function ImprintPage() {
   return (

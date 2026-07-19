@@ -6,7 +6,7 @@ import { QuietButton } from '@/components/form';
 
 /**
  * Voice negotiation (human_roleplay transport): the buyer is the live
- * ElevenLabs voice agent running our custom-LLM brain — identical tools and
+ * ElevenLabs voice agent running our custom-LLM brain. identical tools and
  * truth-layer gating as the text tier. The person on this microphone plays
  * the supplier's dispatcher. Budget-gated server-side; sessions are capped at
  * 240 s with auto-hangup on silence.
@@ -102,7 +102,7 @@ function VoiceCallInner({
     try {
       await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch {
-      setError('Microphone access is required — you play the dispatcher on this call.');
+      setError('Microphone access is required. You play the dispatcher on this call.');
       setPhase('idle');
       return;
     }
@@ -136,7 +136,7 @@ function VoiceCallInner({
   return (
     <details className="mt-4" open={defaultOpen}>
       <summary className="cursor-pointer text-xs text-steel hover:text-ink">
-        Voice call — you play the dispatcher (budget-capped)
+        Voice call (you play the dispatcher, budget-capped)
       </summary>
       <div className="mt-3 flex flex-wrap items-center gap-3">
         <select
@@ -157,7 +157,7 @@ function VoiceCallInner({
             <QuietButton onClick={stop}>End call</QuietButton>
             <span className="flex items-center gap-1.5 text-sm text-ink">
               <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-hivis" aria-hidden />
-              live — the agent speaks for the buyer; answer as the dispatcher
+              live. The agent speaks for the buyer; answer as the dispatcher
             </span>
             <span
               className={`figure text-sm ${VOICE_CAP_SECONDS - elapsed <= 60 ? 'text-flag' : 'text-steel'}`}
@@ -175,7 +175,7 @@ function VoiceCallInner({
         )}
         <span className="text-xs text-steel">
           Voice sessions cap at 8 minutes and hang up after 45 s of silence. Every turn is saved
-          as it happens — an interrupted call keeps everything spoken and becomes a partial
+          as it happens. An interrupted call keeps everything spoken and becomes a partial
           quote, not a decline.
         </span>
       </div>

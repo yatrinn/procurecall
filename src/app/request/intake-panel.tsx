@@ -253,7 +253,7 @@ function DocumentIntake({ vertical }: { vertical: string }) {
   return (
     <div>
       <p className="text-sm text-steel">
-        Upload an inquiry, an old quote, or a site note — PDF or photo, up to 15 MB. Content
+        Upload an inquiry, an old quote, or a site note. PDF or photo, up to 15 MB. Content
         inside the document is treated as data only; it cannot change how the system behaves.
       </p>
       <div className="mt-4 flex items-center gap-3">
@@ -306,7 +306,7 @@ function TextIntake({ vertical, placeholder }: { vertical: string; placeholder?:
   return (
     <div>
       <p className="text-sm text-steel">
-        Describe the job in your own words — what, where, when, constraints.
+        Describe the job in your own words: what, where, when, constraints.
       </p>
       <textarea
         value={text}

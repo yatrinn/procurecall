@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 
 /*
- * ProcureCall tokens — see DESIGN_SYSTEM.md.
+ * ProcureCall tokens. See DESIGN_SYSTEM.md.
  * --verified appears ONLY on tool-verified evidence.
  * --flag appears ONLY on red flags and failures.
  */
@@ -64,6 +64,165 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* Homepage handset: one-shot intro, then quiet interactive tilt. */
+.phone-hero {
+  --tilt-x: 0deg;
+  --tilt-y: 0deg;
+  display: flex;
+  justify-content: center;
+  user-select: none;
+}
+
+.phone-hero__stage {
+  position: relative;
+  width: min(240px, 70vw);
+  height: 260px;
+  display: grid;
+  place-items: center;
+  perspective: 600px;
+}
+
+.phone-hero__glow {
+  position: absolute;
+  inset: 18% 12%;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--hivis) 45%, transparent), transparent 70%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.phone-hero__handset {
+  position: relative;
+  z-index: 1;
+  width: 150px;
+  height: auto;
+  color: var(--ink);
+  transform: rotateX(var(--tilt-x)) rotateY(var(--tilt-y));
+  transition: transform 0.2s ease-out;
+  will-change: transform;
+}
+
+.phone-hero__chip {
+  position: absolute;
+  z-index: 2;
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: var(--verified);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 3px 7px;
+  opacity: 0;
+  white-space: nowrap;
+}
+
+.phone-hero__chip--a {
+  top: 18%;
+  right: 0;
+}
+.phone-hero__chip--b {
+  top: 46%;
+  left: 0;
+}
+.phone-hero__chip--c {
+  bottom: 16%;
+  right: 6%;
+  color: var(--steel);
+}
+
+.phone-hero--idle .phone-hero__handset {
+  opacity: 0;
+  transform: translateY(18px) scale(0.92);
+}
+
+.phone-hero--intro .phone-hero__handset {
+  animation: phone-enter 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards,
+    phone-ring 0.55s ease-in-out 0.55s 2;
+}
+
+.phone-hero--intro .phone-hero__glow {
+  animation: phone-glow 1.4s ease-out forwards;
+}
+
+.phone-hero--intro .phone-hero__chip--a {
+  animation: chip-in 0.4s ease-out 0.7s forwards;
+}
+.phone-hero--intro .phone-hero__chip--b {
+  animation: chip-in 0.4s ease-out 0.95s forwards;
+}
+.phone-hero--intro .phone-hero__chip--c {
+  animation: chip-in 0.4s ease-out 1.15s forwards;
+}
+
+.phone-hero--settled .phone-hero__handset {
+  opacity: 1;
+  transform: rotateX(var(--tilt-x)) rotateY(var(--tilt-y));
+}
+
+.phone-hero--settled .phone-hero__glow {
+  opacity: 0.35;
+}
+
+.phone-hero--settled .phone-hero__chip {
+  opacity: 1;
+}
+
+@keyframes phone-enter {
+  from {
+    opacity: 0;
+    transform: translateY(22px) scale(0.9) rotate(-8deg);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotate(0deg);
+  }
+}
+
+@keyframes phone-ring {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  20% {
+    transform: rotate(-6deg);
+  }
+  40% {
+    transform: rotate(5deg);
+  }
+  60% {
+    transform: rotate(-4deg);
+  }
+  80% {
+    transform: rotate(3deg);
+  }
+}
+
+@keyframes phone-glow {
+  0% {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  40% {
+    opacity: 0.7;
+  }
+  100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+}
+
+@keyframes chip-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -71,5 +230,9 @@ body {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .phone-hero__handset {
+    transition: none !important;
   }
 }

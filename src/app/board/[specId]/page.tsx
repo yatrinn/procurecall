@@ -7,7 +7,7 @@ import { supabaseAdmin } from '@/integrations/supabase-server';
 import { BoardClient } from './board-client';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Negotiation board — ProcureCall' };
+export const metadata = { title: 'Negotiation board | ProcureCall' };
 
 export default async function BoardPage({
   params,
@@ -56,7 +56,7 @@ export default async function BoardPage({
       </div>
       <p className="mt-2 max-w-2xl text-sm text-steel">
         Three suppliers, one identical brief. Every number is pinned to the moment it was
-        spoken. Simulated market — no real businesses are called.
+        spoken. Simulated market. No real businesses are called.
       </p>
       <div className="mt-8">
         <BoardClient
