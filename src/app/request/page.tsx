@@ -20,9 +20,7 @@ export default async function RequestPage({
         <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
           <p className="text-sm text-steel">{vertical.label}</p>
           <span className="text-xs text-steel">·</span>
-          <span className="text-xs text-steel">
-            Vertical is configuration, not code — switch it live:
-          </span>
+          <span className="text-xs text-steel">Switch market:</span>
           {verticals.map((v) => (
             <Link
               key={v.slug}
@@ -35,10 +33,10 @@ export default async function RequestPage({
             </Link>
           ))}
         </div>
-        <h1 className="display mt-2 text-3xl">New request</h1>
+        <h1 className="display mt-2 text-2xl sm:text-3xl">New request</h1>
         <p className="mt-3 max-w-xl text-sm text-steel">
-          One brief, three ways to give it. Every path produces the same structured request,
-          which you review and confirm before any supplier is called.
+          Describe what you need — type it, speak it, or drop a voice note. You review the brief
+          before any supplier is called.
         </p>
         <div className="mt-8">
           <IntakePanel vertical={slug} placeholder={vertical.demoRequestSummary} />
