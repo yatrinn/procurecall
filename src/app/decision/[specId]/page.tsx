@@ -4,6 +4,8 @@ import { Shell } from '@/components/shell';
 import { getSpec } from '@/core/specs-repo';
 import { supabaseAdmin } from '@/integrations/supabase-server';
 import { getOrComputeRecommendation } from '@/core/recommendation';
+import { getVertical } from '@/config/verticals';
+import type { VerticalConfig } from '@/config/vertical-schema';
 import type { ReasonCodeT } from '@/core/ranking';
 
 export const dynamic = 'force-dynamic';
@@ -174,6 +176,11 @@ export default async function DecisionPage({ params }: { params: Promise<{ specI
                   <BreakdownRow label="VAT" value={eur(recommendedQuote.price_breakdown?.tax_cents, currency)} />
                   <BreakdownRow label="Cash required" value={eur(recommendedQuote.price_breakdown?.cash_required_cents, currency)} strong />
                 </dl>
+                <BenchmarkDerivation
+                  breakdown={recommendedQuote.price_breakdown}
+                  vertical={getVertical(spec.vertical_slug)}
+                  currency={currency}
+                />
               </div>
             </section>
           ) : (
@@ -280,6 +287,54 @@ function BreakdownRow({ label, value, strong }: { label: string; value: string; 
       <dt className={strong ? '' : 'text-steel'}>{label}</dt>
       <dd className={`figure text-right ${strong ? 'font-medium' : ''}`}>{value}</dd>
     </>
+  );
+}
+
+/**
+ * The red-flag rule, shown with its arithmetic: quotes are 5-day guaranteed
+ * totals; the engine strips them back to a machine-only day rate and compares
+ * against the sourced public median. Below the threshold ⇒ flagged, never
+ * auto-preferred.
+ */
+function BenchmarkDerivation({
+  breakdown,
+  vertical,
+  currency,
+}: {
+  breakdown: { normalized_rental_cents?: number; rental_per_day_cents?: number | null; is_benchmark_outlier?: boolean } | null;
+  vertical: VerticalConfig;
+  currency: string;
+}) {
+  const median = vertical.benchmark.medianDailyRateNet;
+  const perDay = breakdown?.rental_per_day_cents;
+  if (!median || perDay === null || perDay === undefined) return null;
+  const threshold = median * vertical.redFlagRules.belowBenchmarkMedianFraction;
+  const flagged = breakdown?.is_benchmark_outlier === true;
+  return (
+    <p className="mt-3 max-w-md text-xs text-steel">
+      Benchmark check:{' '}
+      <span className="figure">
+        {((breakdown?.normalized_rental_cents ?? 0) / 100).toFixed(2)} {currency}
+      </span>{' '}
+      rental ÷ 5 days ={' '}
+      <span className="figure">
+        {(perDay / 100).toFixed(2)} {currency}/day
+      </span>{' '}
+      machine-only, vs. sourced median{' '}
+      <span className="figure">
+        {median.toFixed(2)} {currency}/day
+      </span>
+      . Flag threshold {Math.round(vertical.redFlagRules.belowBenchmarkMedianFraction * 100)}% ={' '}
+      <span className="figure">
+        {threshold.toFixed(2)} {currency}/day
+      </span>{' '}
+      —{' '}
+      {flagged ? (
+        <span className="text-flag">below the field; flagged, never auto-preferred.</span>
+      ) : (
+        <span className="text-verified">within the market band.</span>
+      )}
+    </p>
   );
 }
 

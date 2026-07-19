@@ -136,3 +136,31 @@ describe('computePriceBreakdown — edge cases', () => {
     expect(b.computation_notes.join(' ')).toContain('incomplete quote is not a cheap quote');
   });
 });
+
+describe('the 30%-below red-flag rule on THIS demo job (5 days, median 99.00/day)', () => {
+  it('fires on a deliberately lowballed quote (65 EUR/day machine-only)', () => {
+    const b = computePriceBreakdown(
+      [
+        line({ label: '5-day lowball rental', category: 'rental', amount_cents: 32500, unit: 'flat' }),
+        line({ label: 'delivery', category: 'delivery', amount_cents: 9000, unit: 'flat' }),
+        line({ label: 'pickup', category: 'pickup', amount_cents: 9000, unit: 'flat' }),
+        line({ label: 'liability', category: 'insurance', amount_cents: 7000, unit: 'flat' }),
+      ],
+      baseCtx,
+    );
+    // 325.00 / 5 = 65.00/day < 69.30 (70% of 99.00) ⇒ flagged
+    expect(b.rental_per_day_cents).toBe(6500);
+    expect(b.is_benchmark_outlier).toBe(true);
+    expect(b.computation_notes.join(' ')).toContain('far below');
+  });
+
+  it('does not fire on the real golden-run quotes (93–120 EUR/day machine-only)', () => {
+    for (const rentalCents of [46500, 54000, 60000]) {
+      const b = computePriceBreakdown(
+        [line({ label: 'rental', category: 'rental', amount_cents: rentalCents, unit: 'flat' })],
+        baseCtx,
+      );
+      expect(b.is_benchmark_outlier).toBe(false);
+    }
+  });
+});

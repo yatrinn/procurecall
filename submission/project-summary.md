@@ -9,11 +9,13 @@ never written down.
 ProcureCall is a buyer-side procurement agent built on ElevenLabs Agents. Intake by
 voice interview or document upload produces one validated job spec; the user confirms
 it and it freezes under a SHA-256 fingerprint that every call cites. The agent then
-negotiates with suppliers that have genuinely distinct commercial behavior — a
-transparent premium yard, a cheap-headline yard whose 79 €/day becomes 821 € once the
-agent works through every fee category, and a hard dispatcher who quotes only after
-technical scrutiny. Nothing is scripted: each simulated supplier runs a private price
-sheet, floor, and concession ladder grounded in sourced public rate cards.
+negotiates over live voice with suppliers that have genuinely distinct commercial
+behavior — a transparent premium yard; a cheap-headline yard that opens with "79
+euros a day" and discloses transport, insurance, deposit and surcharges only when
+asked category by category, until the real total lands above 800 € net; and a hard
+dispatcher who interrogates before naming any number. Nothing is scripted: each
+simulated supplier runs a private price sheet, floor, and concession ladder grounded
+in sourced public rate cards, enforced by code.
 
 The differentiator is structural honesty. The buyer's only path to a competing figure
 is a server-side verification tool that checks quote status, fingerprint match,

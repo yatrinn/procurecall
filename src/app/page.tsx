@@ -95,11 +95,13 @@ export default async function Home() {
             </dd>
           </div>
           <div>
-            <dt className="text-steel">Benchmark median</dt>
+            <dt className="text-steel">Benchmark median (machine-only day rate)</dt>
             <dd className="figure mt-0.5">
               {vertical.benchmark.medianDailyRateNet?.toFixed(2)} EUR/day net
               <span className="ml-2 font-sans text-steel">
-                from {vertical.benchmark.references.length} public rate cards
+                from {vertical.benchmark.references.length} sourced public rate cards — quotes on
+                the board are 5-day guaranteed totals incl. transport and mandatory liability;
+                the engine normalizes each back to a machine-only day rate before comparing
               </span>
             </dd>
           </div>

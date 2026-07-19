@@ -11,7 +11,7 @@
 | 1 Closed loop | DONE — verified live (intake → confirm → call → quote → decision) |
 | 2 Challenge compliance | DONE — 3 dynamic styles, itemized quotes, verified in-call improvement 895 → 805 EUR (−10.1%), structured outcomes, transcript refs on every line |
 | 3 Demo resilience | DONE — labeled verified replay, rate-limited live runs, scoped reset, no login |
-| 4 Submission-ready | DONE — /submission complete, README per spec, production works in fresh browser contexts (Playwright vs prod: 6/6) |
+| 4 Submission-ready | **NOT DONE.** The package (scripts, manifest, checklist, svg) exists and production is verified — but no video is recorded, the golden VOICE run is not recorded, and submission-checklist.md is unchecked. Nothing is submission-ready until the founder records the voice run + three videos and personally checks the checklist in incognito. |
 | 5 Structural truth | DONE — tool-gated leverage (6 checks), lever tools absent unless authorized, post-call validator, adversarial suite with real results |
 | 6 Technical depth | DONE — evidence ledger (tape pins → transcript/audio), deterministic price engine + ranking (unit-tested), evaluation lab live |
 | 7 Platform proof | DONE — moving-us vertical runs end to end from configuration; live swap on /request |
@@ -47,10 +47,23 @@
   against production), production build, CI green, RLS deny-all verified, no secrets
   in repo.
 
-## Voice budget
+## Voice status (updated 2026-07-19 morning)
 
-- Used: ~2 seconds of 250 minutes (intake smoke). Everything else ran on the text
-  tier. Remaining budget reserved for the founder's golden voice run and demo video.
+- **Voice negotiation verified END TO END on production** (scripts/voice-e2e.ts, no
+  microphone needed): real ElevenLabs buyer audio out (36 chunks / 3.2 MiB), scripted
+  dispatcher audio in via TTS → STT → custom-LLM brain executed tools live
+  (13 fee pins), 10 turns persisted with audio alignment, recording stored and
+  playable via signed URL (HTTP 206 audio/mpeg). Fix that made it work: the SSE
+  stream now sends its first byte immediately with heartbeats — before that,
+  ElevenLabs cascaded to a backup LLM and the agent stayed silent.
+- Click path for the golden run: /demo → "Voice call — you play the dispatcher" →
+  pick supplier → "Start voice call" (repeat per supplier on the same board).
+- Voice budget used: ~6 minutes of session time across 3 verification runs (two of
+  them were the silent failed attempts). Subscription API exposes character_count
+  (2,350 of 131,000) but no separate agent-minute or concurrency field; one session
+  ran at a time without conflict.
+- Evidence anchors seek audio: clicking any figure in the decision room or a replay
+  pin jumps the recording to that second.
 
 ## Known limitations (also in README)
 
