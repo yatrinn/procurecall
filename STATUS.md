@@ -78,9 +78,25 @@
 - The moving vertical is a configuration proof: intake/confirm/negotiation run, but it
   has two seeded suppliers and no golden replay.
 
+## Videos
+
+- **Tech video: rendered and ready** — `~/Downloads/procurecall-tech.mp4`
+  (57.5 s, 1080p H.264/AAC MP4, under the 60 s limit). Built end-to-end by
+  `scripts/make-tech-video.ts`: Playwright records the scripted browser journey
+  (truth-layer code → lever gating → supplier policy JSON → live voice board with
+  playable recording → decision room → /lab 55/55 + attack console → vertical swap);
+  narration is OpenAI TTS "onyx" (the ElevenLabs key has zero direct-TTS quota —
+  only agent sessions draw from the workspace pool). A silent cut
+  (`procurecall-tech-silent.mp4`) and a scene-timing sheet sit next to it so the
+  founder can lay his own voice over the same picture if preferred.
+- **Demo video: not rendered** — needs the founder's golden voice run first (real
+  call audio for seconds 14–34 and founder narration per the demo script).
+- **Team video: founder-recorded**, pending.
+
 ## What the founder still does by hand
 
-1. Record the three videos (scripts + shot list in /submission; keep each ≤ 60 s).
-2. One golden VOICE negotiation run for the demo video (board → "Voice call", play
+1. One golden VOICE negotiation run for the demo video (board → "Voice call", play
    the dispatcher; up to 8 minutes per call, ~90 seconds per call suffices).
+2. Record demo + team videos (scripts + shot list in /submission; each ≤ 60 s).
+   The tech video is already rendered (see above) — review it, then upload.
 3. Submit: production URL, repo, zip, videos, dataset manifest.
