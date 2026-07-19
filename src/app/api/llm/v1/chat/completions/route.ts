@@ -98,7 +98,7 @@ export async function POST(request: Request) {
       supplierName: supplier.name,
       levers: spec.authorized_levers,
     }) +
-    '\n\nVOICE MODE: you are live on a phone call. Keep utterances short and natural. Numbers slowly and clearly.';
+    '\n\nVOICE MODE: you are live on a phone call. Keep utterances short and natural. Numbers slowly and clearly. The system may have already voiced a brief acknowledgement for you — NEVER start your reply with filler words (Alright, Okay, Got it, One moment); go straight to substance. Batch all log_quote_line calls for one supplier utterance into a single parallel tool batch.';
 
   // Rebuild the conversation for the Responses API from the full history
   // ElevenLabs sends on every request (stateless on our side).
@@ -117,11 +117,21 @@ export async function POST(request: Request) {
 
   const record = (r: ToolCallRecord) => newToolRecords.push(r);
 
+  // Voice latency: conversational turns (no numbers in play) run on the fast
+  // model; anything commercial — figures, prices, booking, leverage — runs on
+  // the strong model. The tool surface is identical either way.
+  const lastUserText = [...history].reverse().find((m) => m.role === 'user')?.content ?? '';
+  const commercialSignal =
+    /\d|euro|price|rate|fee|discount|quote|book|total|deposit|surcharge|liab|insur|percent|cost/i.test(
+      lastUserText,
+    ) || history.length <= 1;
+  const turnModel = commercialSignal ? MODELS.reasoning : MODELS.fast;
+
   const runBrain = async (): Promise<string> => {
     let items: Item[] = history;
     for (let hop = 0; hop <= 6; hop++) {
       const response = await openai().responses.create({
-        model: MODELS.reasoning,
+        model: turnModel,
         instructions: systemPrompt,
         input: items,
         tools: toOpenAiTools(tools),
@@ -193,10 +203,14 @@ export async function POST(request: Request) {
       .eq('id', callId);
   };
 
-  // OpenAI-compatible SSE with an IMMEDIATE first byte: ElevenLabs cascades
-  // to a backup LLM when the endpoint stays silent, so we open the stream
-  // right away, heartbeat with empty deltas while the tool loop runs, then
-  // stream the utterance in sentence-sized chunks.
+  // OpenAI-compatible SSE tuned for time-to-first-AUDIO:
+  // 1. first byte immediately (prevents LLM cascading),
+  // 2. from the second turn on, a short spoken acknowledgement streams at
+  //    once so TTS starts while the tool loop still runs,
+  // 3. then the utterance in sentence-sized chunks.
+  const ACKS = ['Alright. ', 'Okay. ', 'Got it. ', 'One second. '];
+  const speakAck = history.length > 1;
+  const requestStartedAt = Date.now();
   const encoder = new TextEncoder();
   const id = `chatcmpl-${callId.slice(0, 8)}-${Date.now()}`;
   const stream = new ReadableStream({
@@ -214,6 +228,12 @@ export async function POST(request: Request) {
           ),
         );
       chunk({ role: 'assistant' });
+      let ack = '';
+      if (speakAck) {
+        ack = ACKS[Math.floor(Math.random() * ACKS.length)];
+        chunk({ content: ack });
+      }
+      const firstContentMs = Date.now() - requestStartedAt;
       const heartbeat = setInterval(() => chunk({}), 2500);
       let finalText = '';
       try {
@@ -224,12 +244,15 @@ export async function POST(request: Request) {
         clearInterval(heartbeat);
       }
       if (!finalText) finalText = 'Sorry, could you repeat that?';
+      console.log(
+        `voice-turn call=${callId.slice(0, 8)} model=${turnModel === MODELS.fast ? 'fast' : 'reasoning'} first_content_ms=${firstContentMs} brain_ms=${Date.now() - requestStartedAt}`,
+      );
       const parts = finalText.match(/[^.!?]+[.!?]*\s*/g) ?? [finalText];
       for (const part of parts) chunk({ content: part });
       chunk({}, 'stop');
       controller.enqueue(encoder.encode('data: [DONE]\n\n'));
       controller.close();
-      await persistTurn(finalText).catch((e) => console.error('persist failed:', e));
+      await persistTurn(ack + finalText).catch((e) => console.error('persist failed:', e));
     },
   });
   return new Response(stream, {

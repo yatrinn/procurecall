@@ -1,4 +1,4 @@
-import 'server-only';
+// Pure pricing logic — no secrets, safe anywhere (tests, scripts, server).
 import { computePriceBreakdown, type LineCategory, type PriceLine } from '@/core/price-engine';
 import type { VerticalConfig } from '@/config/vertical-schema';
 import type { SpecFields } from '@/core/jobspec';
@@ -80,30 +80,65 @@ export function computeQuoteTotals(input: {
 }) {
   const ctx = pricingContextFor(input.vertical, input.fields);
   const priceLines = dedupeLines(input.lines);
-  const before = computePriceBreakdown(priceLines, ctx);
+  const lineState = computePriceBreakdown(priceLines, ctx);
 
-  // Concession deltas apply ONLY when the final line state still shows the
-  // pre-concession amount (e.g. a waived fee that was never re-logged). If
-  // the buyer re-logged the line at its new amount, the concession is already
-  // inside the line state — subtracting it again would double-count. This
-  // rule is what keeps totals from ever drifting below the evidence.
-  const lineAmounts = new Set(priceLines.map((l) => l.amount_cents));
-  const concessionTotal = input.concessions.reduce((sum, c) => {
-    if (c.amount_before_cents === null || c.amount_after_cents === null) return sum;
-    if (!lineAmounts.has(c.amount_before_cents)) return sum;
-    return sum + (c.amount_before_cents - c.amount_after_cents);
-  }, 0);
+  // INVARIANT: a concession is counted against the money exactly ONCE.
+  // The same concession can be represented two ways:
+  //   (1) inside the line state — as a discount line or a re-logged line —
+  //       in which case the engine sum over lines ALREADY reflects it;
+  //   (2) only as a negotiation event, in which case (and only then) its
+  //       delta is subtracted on top of the line state.
+  // Consolidation: an event whose delta matches an unconsumed discount line
+  // is representation (1) → display-only. An event whose pre-amount still
+  // appears on a non-discount line is representation (2) → applied. Anything
+  // else is unverifiable → ignored with a note. "was X" is reconstructed as
+  // after + all recognized deltas, so the shown total never drifts below the
+  // transcript evidence.
+  const unconsumedDiscounts = priceLines
+    .filter((l) => l.category === 'discount')
+    .map((l) => Math.abs(l.amount_cents));
+  const nonDiscountAmounts = priceLines
+    .filter((l) => l.category !== 'discount')
+    .map((l) => l.amount_cents);
 
-  let afterGuaranteed = before.guaranteed_net_cents - concessionTotal;
+  let appliedDeltas = 0;
+  let recognizedDeltas = 0;
+  for (const c of input.concessions) {
+    if (c.amount_before_cents === null || c.amount_after_cents === null) continue;
+    const delta = c.amount_before_cents - c.amount_after_cents;
+    if (delta <= 0) continue;
+    const discountIdx = unconsumedDiscounts.indexOf(delta);
+    if (discountIdx !== -1) {
+      // Already inside the line state as a discount line.
+      unconsumedDiscounts.splice(discountIdx, 1);
+      recognizedDeltas += delta;
+      continue;
+    }
+    if (nonDiscountAmounts.includes(c.amount_before_cents)) {
+      // Line state still shows the pre-concession amount → apply once.
+      appliedDeltas += delta;
+      recognizedDeltas += delta;
+      continue;
+    }
+    lineState.computation_notes.push(
+      `Concession "${c.category_hint ?? 'unnamed'}" (${c.amount_before_cents} → ${c.amount_after_cents}) matches neither a discount line nor a pre-concession line; NOT applied. Review the transcript.`,
+    );
+  }
+
+  let afterGuaranteed = lineState.guaranteed_net_cents - appliedDeltas;
   if (afterGuaranteed < 0) {
     // Structural guard: a negative guaranteed total is impossible; fall back
     // to the evidence-backed line state and record the anomaly.
-    before.computation_notes.push(
+    lineState.computation_notes.push(
       `Concession arithmetic would drive the total below zero (${afterGuaranteed}); falling back to the line state. Review the negotiation events.`,
     );
-    afterGuaranteed = before.guaranteed_net_cents;
+    afterGuaranteed = lineState.guaranteed_net_cents;
   }
-  const notes = [...before.computation_notes];
+  // "was X": the pre-negotiation position is the final total plus every
+  // recognized concession delta — reconstructed upward, never guessed.
+  const beforeGuaranteed = afterGuaranteed + recognizedDeltas;
+
+  const notes = [...lineState.computation_notes];
   if (
     input.modelClaimedTotalCents !== null &&
     input.modelClaimedTotalCents !== afterGuaranteed
@@ -114,22 +149,24 @@ export function computeQuoteTotals(input: {
   }
 
   const after = {
-    ...before,
+    ...lineState,
     guaranteed_net_cents: afterGuaranteed,
     tax_cents: Math.round(afterGuaranteed * ctx.vatRate),
     cash_required_cents:
-      afterGuaranteed + Math.round(afterGuaranteed * ctx.vatRate) + before.refundable_deposit_cents,
+      afterGuaranteed +
+      Math.round(afterGuaranteed * ctx.vatRate) +
+      lineState.refundable_deposit_cents,
     best_case_cents: afterGuaranteed,
-    expected_case_cents: before.expected_case_cents - concessionTotal,
-    worst_case_cents: before.worst_case_cents - concessionTotal,
+    expected_case_cents: lineState.expected_case_cents - appliedDeltas,
+    worst_case_cents: lineState.worst_case_cents - appliedDeltas,
     computation_notes: notes,
   };
 
   return {
-    totalBeforeCents: before.guaranteed_net_cents,
+    totalBeforeCents: beforeGuaranteed,
     totalAfterCents: afterGuaranteed,
     breakdown: after,
-    breakdownBefore: before,
+    breakdownBefore: lineState,
     engineDisagreesWithModel:
       input.modelClaimedTotalCents !== null && input.modelClaimedTotalCents !== afterGuaranteed,
   };

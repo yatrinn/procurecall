@@ -99,6 +99,55 @@ describe('computeQuoteTotals — totals never aggregate or go negative', () => {
     expect(totals.totalAfterCents).toBe(60000);
   });
 
+  it('REGRESSION (the 625 bug): waivers logged as discount lines are never subtracted twice', () => {
+    // The real Hebetec call: 895 opening → waive early 45 → 850 → waive pickup 90
+    // → 760 confirmed. The buyer logged the waivers as DISCOUNT lines AND the
+    // concession events carried the same deltas. Expected: 760, never 625.
+    const totals = computeQuoteTotals({
+      vertical,
+      fields,
+      lines: [
+        l({ label: 'five business day rental', category: 'rental', amount_cents: 60000, unit: 'flat', turn_index: 3 }),
+        l({ label: 'delivery', category: 'delivery', amount_cents: 9000, unit: 'flat', turn_index: 3 }),
+        l({ label: 'pickup', category: 'pickup', amount_cents: 9000, unit: 'flat', turn_index: 3 }),
+        l({ label: 'mandatory liability reduction', category: 'insurance', amount_cents: 7000, unit: 'flat', turn_index: 3 }),
+        l({ label: 'early-delivery surcharge before 07:00', category: 'surcharge', amount_cents: 4500, unit: 'flat', turn_index: 3 }),
+        l({ label: 'conditional cleaning fee if returned dirty', category: 'cleaning', amount_cents: 8000, unit: 'flat', turn_index: 5, is_mandatory: false, is_conditional: true }),
+        l({ label: 'pickup fee waived', category: 'discount', amount_cents: 9000, unit: 'flat', turn_index: 9, is_mandatory: false }),
+        l({ label: 'early-delivery surcharge waived', category: 'discount', amount_cents: 4500, unit: 'flat', turn_index: 9, is_mandatory: false }),
+      ],
+      concessions: [
+        { category_hint: 'early-delivery surcharge waived', amount_before_cents: 4500, amount_after_cents: 0 },
+        { category_hint: 'pickup fee waived', amount_before_cents: 9000, amount_after_cents: 0 },
+      ],
+      modelClaimedTotalCents: 76000,
+    });
+    expect(totals.totalAfterCents).toBe(76000);
+    expect(totals.totalBeforeCents).toBe(89500);
+    expect(totals.engineDisagreesWithModel).toBe(false);
+  });
+
+  it('the golden-run shape (event only, line state pre-concession) still applies once', () => {
+    // 895 line state, pickup waiver exists only as an event → after 805, was 895.
+    const totals = computeQuoteTotals({
+      vertical,
+      fields,
+      lines: [
+        l({ label: 'rental', category: 'rental', amount_cents: 60000, unit: 'flat', turn_index: 2 }),
+        l({ label: 'delivery', category: 'delivery', amount_cents: 9000, unit: 'flat', turn_index: 2 }),
+        l({ label: 'pickup', category: 'pickup', amount_cents: 9000, unit: 'flat', turn_index: 2 }),
+        l({ label: 'liability', category: 'insurance', amount_cents: 7000, unit: 'flat', turn_index: 2 }),
+        l({ label: 'early surcharge', category: 'surcharge', amount_cents: 4500, unit: 'flat', turn_index: 2 }),
+      ],
+      concessions: [
+        { category_hint: 'pickup fee waived', amount_before_cents: 9000, amount_after_cents: 0 },
+      ],
+      modelClaimedTotalCents: 80500,
+    });
+    expect(totals.totalAfterCents).toBe(80500);
+    expect(totals.totalBeforeCents).toBe(89500);
+  });
+
   it('an absurd discount cannot drive the guaranteed total negative', () => {
     const totals = computeQuoteTotals({
       vertical,

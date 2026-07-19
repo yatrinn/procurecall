@@ -33,11 +33,14 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       supabase.from('suppliers').select('id, name, location, is_simulated, distance_km'),
     ]);
 
-  // Public hygiene: smoke-test sessions and calls that never actually started
-  // (failed with fewer than two turns) do not belong on any public surface.
+  // Public hygiene: smoke-test sessions and calls that never captured a
+  // single spoken turn do not belong on any public surface. Live sessions
+  // (pending/in_progress) stay visible while they run.
   const publicSessions = (sessions ?? []).filter((s) => {
     if (s.failure_state === 'smoke_test_session') return false;
     const turns = (s.transcript as unknown[]) ?? [];
+    const live = s.status === 'pending' || s.status === 'in_progress';
+    if (!live && turns.length === 0) return false;
     if (s.status === 'failed' && turns.length < 2) return false;
     return true;
   });

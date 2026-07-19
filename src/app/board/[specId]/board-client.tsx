@@ -426,6 +426,11 @@ function StatusBadge({ session }: { session: SessionDto }) {
       </span>
     );
   }
+  if (session.failure_state === 'interrupted_no_outcome') {
+    return (
+      <span className="text-xs text-flag">interrupted — partial data kept</span>
+    );
+  }
   if (session.status === 'failed') {
     return (
       <span className="text-xs text-flag">

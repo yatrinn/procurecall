@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ConversationProvider, useConversation } from '@elevenlabs/react';
 import { QuietButton } from '@/components/form';
 
@@ -35,6 +35,8 @@ export function VoiceCallPanel({
   );
 }
 
+const VOICE_CAP_SECONDS = 480;
+
 function VoiceCallInner({
   specId,
   suppliers,
@@ -49,9 +51,17 @@ function VoiceCallInner({
   const [supplierId, setSupplierId] = useState(suppliers[0]?.id ?? '');
   const [error, setError] = useState<string | null>(null);
   const [phase, setPhase] = useState<'idle' | 'starting' | 'live' | 'finishing'>('idle');
+  const [elapsed, setElapsed] = useState(0);
   const callIdRef = useRef<string | null>(null);
   const conversationIdRef = useRef<string | null>(null);
   const finishedRef = useRef(false);
+
+  useEffect(() => {
+    if (phase !== 'live') return;
+    setElapsed(0);
+    const t = setInterval(() => setElapsed((s) => s + 1), 1000);
+    return () => clearInterval(t);
+  }, [phase]);
 
   const conversation = useConversation({
     onConnect: ({ conversationId }: { conversationId: string }) => {
@@ -145,6 +155,14 @@ function VoiceCallInner({
               <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-hivis" aria-hidden />
               live — the agent speaks for the buyer; answer as the dispatcher
             </span>
+            <span
+              className={`figure text-sm ${VOICE_CAP_SECONDS - elapsed <= 60 ? 'text-flag' : 'text-steel'}`}
+              aria-live="polite"
+              title="Time remaining before the hard cap"
+            >
+              {Math.floor((VOICE_CAP_SECONDS - elapsed) / 60)}:
+              {String((VOICE_CAP_SECONDS - elapsed) % 60).padStart(2, '0')} left
+            </span>
           </>
         ) : (
           <QuietButton onClick={start} disabled={phase !== 'idle' || !supplierId}>
@@ -152,7 +170,9 @@ function VoiceCallInner({
           </QuietButton>
         )}
         <span className="text-xs text-steel">
-          Voice sessions cap at 4 minutes and hang up after 20 s of silence.
+          Voice sessions cap at 8 minutes and hang up after 45 s of silence. Every turn is saved
+          as it happens — an interrupted call keeps everything spoken and becomes a partial
+          quote, not a decline.
         </span>
       </div>
       {error ? <p className="mt-2 text-sm text-flag">{error}</p> : null}

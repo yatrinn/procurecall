@@ -87,11 +87,11 @@ async function main() {
       },
     },
     conversation: {
-      maxDurationSeconds: 240,
+      maxDurationSeconds: 480,
     },
     turn: {
-      turnTimeout: 10,
-      silenceEndCallTimeout: 20,
+      turnTimeout: 12,
+      silenceEndCallTimeout: 45,
     },
   };
   const platformSettings = { auth: { enableAuth: true } };
