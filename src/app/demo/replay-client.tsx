@@ -150,19 +150,6 @@ export function RunLive() {
     router.push(`/board/${body.spec_id}`);
   }, [router]);
 
-  const voiceRun = useCallback(async () => {
-    setBusy(true);
-    setError(null);
-    const res = await fetch('/api/golden/voice-spec', { method: 'POST' });
-    const body = (await res.json()) as { spec_id?: string; error?: string };
-    if (!res.ok || !body.spec_id) {
-      setError(body.error ?? 'The voice run could not be prepared.');
-      setBusy(false);
-      return;
-    }
-    router.push(`/board/${body.spec_id}?voice=1`);
-  }, [router]);
-
   const reset = useCallback(async () => {
     setBusy(true);
     setError(null);
@@ -187,20 +174,43 @@ export function RunLive() {
         <PrimaryButton onClick={run} disabled={busy}>
           {busy ? 'Preparing…' : 'Run it live now'}
         </PrimaryButton>
-        <QuietButton onClick={voiceRun} disabled={busy}>
-          Voice call (you play the dispatcher)
-        </QuietButton>
         <QuietButton onClick={reset} disabled={busy}>
           Reset demo data
         </QuietButton>
       </div>
       <p className="mt-2 max-w-xl text-xs text-steel">
-        Live run: same brief, new calls. Wording and outcomes can differ from the recording.
-        Voice option: the buyer agent talks; you answer as the dispatcher. Sessions cap at
-        4 minutes.
+        Same brief, new calls. Wording and outcomes can differ from the recording.
       </p>
       {error ? <p className="mt-3 text-sm text-flag">{error}</p> : null}
       {resetNote ? <p className="mt-3 text-sm text-steel">{resetNote}</p> : null}
+    </div>
+  );
+}
+
+export function TalkToAgent() {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const voiceRun = useCallback(async () => {
+    setBusy(true);
+    setError(null);
+    const res = await fetch('/api/golden/voice-spec', { method: 'POST' });
+    const body = (await res.json()) as { spec_id?: string; error?: string };
+    if (!res.ok || !body.spec_id) {
+      setError(body.error ?? 'The voice run could not be prepared.');
+      setBusy(false);
+      return;
+    }
+    router.push(`/board/${body.spec_id}?voice=1`);
+  }, [router]);
+
+  return (
+    <div>
+      <PrimaryButton onClick={voiceRun} disabled={busy}>
+        {busy ? 'Preparing…' : 'Start a voice call now'}
+      </PrimaryButton>
+      {error ? <p className="mt-3 text-sm text-flag">{error}</p> : null}
     </div>
   );
 }

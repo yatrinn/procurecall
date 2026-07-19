@@ -197,9 +197,14 @@ export function CallTape({
       </div>
 
       {audioUrl ? (
-        <audio ref={audioRef} controls preload="none" src={audioUrl} className="mt-3 h-8 w-full">
-          Your browser does not support audio playback.
-        </audio>
+        <div className="mt-3">
+          <p className="mb-1 text-xs text-steel">
+            Call recording. Press play to listen; clicking a pin seeks to that second.
+          </p>
+          <audio ref={audioRef} controls preload="none" src={audioUrl} className="h-8 w-full">
+            Your browser does not support audio playback.
+          </audio>
+        </div>
       ) : null}
 
       {/* transcript */}

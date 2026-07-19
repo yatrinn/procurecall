@@ -4,7 +4,7 @@ import { supabaseAdmin } from '@/integrations/supabase-server';
 import { getAppSetting } from '@/integrations/elevenlabs-server';
 import { getVertical, DEFAULT_VERTICAL_SLUG } from '@/config/verticals';
 import { derivePins, type PinSourceEvent, type PinSourceSession } from '@/components/derive-pins';
-import { ReplayClient, RunLive, type ReplaySession } from './replay-client';
+import { ReplayClient, RunLive, TalkToAgent, type ReplaySession } from './replay-client';
 import type { TapeTurn } from '@/components/call-tape';
 
 export const dynamic = 'force-dynamic';
@@ -118,14 +118,21 @@ export default async function DemoPage() {
           Three different calls.
         </h1>
         <p className="mt-4 max-w-2xl text-base text-steel sm:text-sm">
-          Brief: {vertical.demoRequestSummary}. Hit play to hear the three negotiations and
-          watch each fee appear on the tape when it was said. Then open the decision room for
-          ranked totals. Every number jumps back to the exact moment it was spoken.
+          Brief: {vertical.demoRequestSummary}. Press play to watch the run in fast-forward:
+          each fee pins to the tape at the moment it was said. The time-lapse itself is silent.
+          To hear a call, use the audio player under its tape.
         </p>
         <ol className="mt-5 max-w-xl list-decimal space-y-1 pl-5 text-sm text-steel">
-          <li>Play the recorded run below</li>
+          <li>Play the recorded run below (silent fast-forward of the three calls)</li>
+          <li>Press play on a call recording under any tape to hear the actual audio</li>
           <li>Open the decision room and click a fee to jump back to that moment</li>
-          <li>Optional: start a live run (rate-limited) or write your own request</li>
+          <li>
+            Or{' '}
+            <a href="#talk" className="underline underline-offset-4 hover:text-ink">
+              talk to the buyer agent yourself
+            </a>{' '}
+            with your microphone
+          </li>
         </ol>
         {fingerprint ? (
           <p className="mt-4 text-sm">
@@ -160,10 +167,32 @@ export default async function DemoPage() {
         </section>
       )}
 
+      <section
+        id="talk"
+        className="mt-12 max-w-2xl scroll-mt-6 border border-line bg-paper p-5 sm:mt-14 sm:p-6"
+      >
+        <h2 className="display text-lg sm:text-xl">Talk to the buyer agent yourself</h2>
+        <p className="mt-2 text-sm text-steel">
+          This is the live part: a real phone-style call in your browser, over your microphone.
+          The AI buyer calls to rent the scissor lift and you answer as the rental company&apos;s
+          dispatcher. Name your prices, hide fees, push back. Everything you say lands on a tape
+          like the ones above.
+        </p>
+        <ol className="mt-3 list-decimal space-y-1 pl-5 text-sm text-steel">
+          <li>Click the button and allow microphone access</li>
+          <li>The agent starts talking. Answer out loud as the dispatcher</li>
+          <li>Hang up whenever you want; the call caps at 4 minutes</li>
+        </ol>
+        <div className="mt-4">
+          <TalkToAgent />
+        </div>
+      </section>
+
       <section className="mt-12 border-t border-line pt-6 sm:mt-14">
-        <h2 className="text-sm font-medium">Run it live</h2>
+        <h2 className="text-sm font-medium">Run it live (text, no microphone)</h2>
         <p className="mt-1 max-w-xl text-sm text-steel">
-          Same brief again, three real calls. Limited per IP so the demo stays usable for everyone.
+          Same brief again, three fresh agent-vs-agent negotiations. Limited per IP so the demo
+          stays usable for everyone.
         </p>
         <div className="mt-3">
           <RunLive />

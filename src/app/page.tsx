@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Shell } from '@/components/shell';
-import { PhoneHero } from '@/components/phone-hero';
+import { PhoneCloudIntro } from '@/components/phone-hero';
 import { supabaseAdmin } from '@/integrations/supabase-server';
 import { getVertical, DEFAULT_VERTICAL_SLUG } from '@/config/verticals';
 
@@ -25,38 +25,36 @@ export default async function Home() {
 
   return (
     <Shell>
-      <div className="grid max-w-5xl items-center gap-10 lg:grid-cols-[minmax(0,1fr)_240px] lg:gap-14">
-        <div className="min-w-0">
-          <p className="text-sm text-steel">Equipment rental procurement</p>
-          <h1 className="display mt-3 text-3xl sm:text-4xl md:text-5xl">
-            One brief in.
-            <br />
-            Itemized quotes out.
-          </h1>
-          <p className="mt-5 max-w-xl text-base text-steel sm:text-[15px]">
-            Describe the job once. ProcureCall calls the suppliers, pulls every fee from the
-            conversation, and ranks the real totals (not the headline day rate). Click any
-            number to jump to the second it was said.
-          </p>
-          <div className="mt-7 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-3">
-            <Link
-              href="/demo"
-              className="rounded-sm bg-ink px-4 py-2.5 text-center text-sm font-medium text-paper hover:bg-black"
-            >
-              Watch a recorded run
-            </Link>
-            <Link
-              href="/request"
-              className="rounded-sm border border-line bg-paper px-4 py-2.5 text-center text-sm text-ink hover:border-steel"
-            >
-              Start your own request
-            </Link>
-          </div>
-          <p className="mt-3 text-xs text-steel">
-            No login. Demo market is simulated, so nobody&apos;s real business gets a call.
-          </p>
+      <PhoneCloudIntro />
+      <div className="max-w-3xl">
+        <p className="text-sm text-steel">Equipment rental procurement</p>
+        <h1 className="display mt-3 text-3xl sm:text-4xl md:text-5xl">
+          One brief in.
+          <br />
+          Itemized quotes out.
+        </h1>
+        <p className="mt-5 max-w-xl text-base text-steel sm:text-[15px]">
+          Describe the job once. ProcureCall calls the suppliers, pulls every fee from the
+          conversation, and ranks the real totals (not the headline day rate). Click any
+          number to jump to the second it was said.
+        </p>
+        <div className="mt-7 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-3">
+          <Link
+            href="/demo"
+            className="rounded-sm bg-ink px-4 py-2.5 text-center text-sm font-medium text-paper hover:bg-black"
+          >
+            Watch a recorded run
+          </Link>
+          <Link
+            href="/demo#talk"
+            className="rounded-sm border border-line bg-paper px-4 py-2.5 text-center text-sm text-ink hover:border-steel"
+          >
+            Talk to the agent yourself
+          </Link>
         </div>
-        <PhoneHero />
+        <p className="mt-3 text-xs text-steel">
+          No login. Demo market is simulated, so nobody&apos;s real business gets a call.
+        </p>
       </div>
 
       <div className="mt-12 grid max-w-3xl grid-cols-1 gap-8 sm:mt-14 sm:grid-cols-3 sm:gap-x-10 sm:gap-y-6">

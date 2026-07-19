@@ -4,124 +4,181 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
 const SESSION_KEY = 'pc-phone-intro-played';
 
+/** Classic handset pictogram (Material "call", 24x24 viewBox). */
+const PHONE_PATH =
+  'M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.24 1.02l-2.2 2.2z';
+
+const CONVERGE_MS = 1100;
+const HOLD_MS = 800;
+const EXPAND_MS = 1600;
+const TOTAL_MS = CONVERGE_MS + HOLD_MS + EXPAND_MS;
+
+interface Particle {
+  sx: number;
+  sy: number;
+  tx: number;
+  ty: number;
+  dirX: number;
+  dirY: number;
+  dist: number;
+  size: number;
+  color: string;
+  alpha: number;
+  delay: number;
+  phase: number;
+}
+
 function subscribe() {
   return () => {};
 }
 
-function readIntroNeeded(): boolean {
+function readShouldPlay(): boolean {
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
   return sessionStorage.getItem(SESSION_KEY) !== '1';
 }
 
+function easeOutCubic(t: number): number {
+  return 1 - Math.pow(1 - t, 3);
+}
+
+/** Sample the handset glyph into normalized points in [-0.5, 0.5]. */
+function sampleShape(): Array<{ x: number; y: number }> {
+  const S = 220;
+  const off = document.createElement('canvas');
+  off.width = S;
+  off.height = S;
+  const ctx = off.getContext('2d');
+  if (!ctx) return [];
+  ctx.scale(S / 24, S / 24);
+  ctx.fill(new Path2D(PHONE_PATH));
+  const data = ctx.getImageData(0, 0, S, S).data;
+  const points: Array<{ x: number; y: number }> = [];
+  const step = 4;
+  for (let py = 0; py < S; py += step) {
+    for (let px = 0; px < S; px += step) {
+      if (data[(py * S + px) * 4 + 3] > 128) {
+        points.push({ x: px / S - 0.5, y: py / S - 0.5 });
+      }
+    }
+  }
+  return points;
+}
+
 /**
- * One-shot hero mark: a handset that rings in once, then sits still.
- * Interactive tilt after the intro. No ambient loop (DESIGN_SYSTEM.md).
+ * One-shot homepage intro: dots converge into a telephone handset pictogram,
+ * hold for a beat, then expand from the center across the whole screen and
+ * fade out. Plays once per session; skipped under prefers-reduced-motion.
  */
-export function PhoneHero() {
-  const rootRef = useRef<HTMLDivElement>(null);
-  const needsIntro = useSyncExternalStore(subscribe, readIntroNeeded, () => false);
+export function PhoneCloudIntro() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const shouldPlay = useSyncExternalStore(subscribe, readShouldPlay, () => false);
   const [finished, setFinished] = useState(false);
-  const phase = needsIntro && !finished ? 'intro' : 'settled';
+  const active = shouldPlay && !finished;
 
   useEffect(() => {
-    if (!needsIntro || finished) return;
-    const settle = window.setTimeout(() => {
-      sessionStorage.setItem(SESSION_KEY, '1');
-      setFinished(true);
-    }, 1600);
-    return () => window.clearTimeout(settle);
-  }, [needsIntro, finished]);
+    if (!active) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext('2d');
+    if (!canvas || !ctx) return;
 
-  useEffect(() => {
-    const el = rootRef.current;
-    if (!el || phase !== 'settled') return;
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = w * dpr;
+    canvas.height = h * dpr;
+    ctx.scale(dpr, dpr);
 
-    const onMove = (e: PointerEvent) => {
-      const rect = el.getBoundingClientRect();
-      const x = (e.clientX - rect.left) / rect.width - 0.5;
-      const y = (e.clientY - rect.top) / rect.height - 0.5;
-      el.style.setProperty('--tilt-x', `${(-y * 8).toFixed(2)}deg`);
-      el.style.setProperty('--tilt-y', `${(x * 10).toFixed(2)}deg`);
+    const cx = w / 2;
+    const cy = h * 0.44;
+    const shapeSize = Math.min(w, h) * 0.5;
+    const screenReach = Math.hypot(w, h) * 0.62;
+
+    const particles: Particle[] = sampleShape().map(({ x, y }) => {
+      const tx = cx + x * shapeSize;
+      const ty = cy + y * shapeSize;
+      let dirX = tx - cx;
+      let dirY = ty - cy;
+      const len = Math.hypot(dirX, dirY) || 1;
+      dirX /= len;
+      dirY /= len;
+      const r = Math.random();
+      const color =
+        r < 0.05 ? '#c4d600' : r < 0.13 ? 'rgba(90,101,112,1)' : 'rgba(20,24,26,1)';
+      return {
+        sx: cx + (Math.random() - 0.5) * 36,
+        sy: cy + (Math.random() - 0.5) * 36,
+        tx,
+        ty,
+        dirX,
+        dirY,
+        dist: (0.55 + Math.random() * 0.6) * screenReach,
+        size: 1.4 + Math.random() * 1.6,
+        color,
+        alpha: 0.55 + Math.random() * 0.4,
+        delay: Math.random() * 220,
+        phase: Math.random() * Math.PI * 2,
+      };
+    });
+
+    let raf = 0;
+    const start = performance.now();
+
+    const frame = (now: number) => {
+      const elapsed = now - start;
+      ctx.clearRect(0, 0, w, h);
+
+      for (const p of particles) {
+        const t = elapsed - p.delay;
+        let x: number;
+        let y: number;
+        let a: number;
+        let s = p.size;
+
+        if (t <= 0) {
+          continue;
+        } else if (t < CONVERGE_MS) {
+          const e = easeOutCubic(t / CONVERGE_MS);
+          x = p.sx + (p.tx - p.sx) * e;
+          y = p.sy + (p.ty - p.sy) * e;
+          a = p.alpha * Math.min(1, t / 300);
+        } else if (t < CONVERGE_MS + HOLD_MS) {
+          const wob = Math.sin(now / 320 + p.phase) * 0.9;
+          x = p.tx + wob;
+          y = p.ty + wob * 0.6;
+          a = p.alpha;
+        } else {
+          const et = Math.min(1, (t - CONVERGE_MS - HOLD_MS) / EXPAND_MS);
+          const e = easeOutCubic(et);
+          x = p.tx + p.dirX * p.dist * e;
+          y = p.ty + p.dirY * p.dist * e;
+          a = p.alpha * (1 - et);
+          s = p.size * (1 - et * 0.4);
+        }
+
+        ctx.globalAlpha = a;
+        ctx.fillStyle = p.color;
+        ctx.fillRect(x, y, s, s);
+      }
+      ctx.globalAlpha = 1;
+
+      if (elapsed < TOTAL_MS + 300) {
+        raf = requestAnimationFrame(frame);
+      } else {
+        sessionStorage.setItem(SESSION_KEY, '1');
+        setFinished(true);
+      }
     };
-    const onLeave = () => {
-      el.style.setProperty('--tilt-x', '0deg');
-      el.style.setProperty('--tilt-y', '0deg');
-    };
 
-    el.addEventListener('pointermove', onMove);
-    el.addEventListener('pointerleave', onLeave);
-    return () => {
-      el.removeEventListener('pointermove', onMove);
-      el.removeEventListener('pointerleave', onLeave);
-    };
-  }, [phase]);
+    raf = requestAnimationFrame(frame);
+    return () => cancelAnimationFrame(raf);
+  }, [active]);
 
+  if (!active) return null;
   return (
-    <div ref={rootRef} className={`phone-hero phone-hero--${phase}`} aria-hidden>
-      <div className="phone-hero__stage">
-        <div className="phone-hero__glow" />
-        <svg
-          className="phone-hero__handset"
-          viewBox="0 0 160 200"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          {/* Classic handset silhouette */}
-          <path
-            d="M48 36
-               C 40 36, 34 44, 36 54
-               L 42 78
-               C 44 86, 52 90, 60 88
-               L 72 84
-               C 78 82, 84 86, 86 92
-               L 96 128
-               C 98 134, 94 140, 88 142
-               L 64 150
-               C 54 154, 48 164, 52 174
-               L 58 188
-               C 62 198, 74 200, 82 192
-               L 118 156
-               C 126 148, 128 136, 122 126
-               L 98 78
-               C 94 70, 96 60, 104 56
-               L 126 46
-               C 136 42, 140 30, 132 22
-               L 120 12
-               C 112 6, 100 8, 94 16
-               L 70 48
-               C 66 54, 58 54, 52 50
-               L 48 36 Z"
-            fill="var(--ink)"
-          />
-          <path
-            d="M58 48 L 78 36 C 84 32, 92 34, 96 40 L 108 58"
-            stroke="var(--paper)"
-            strokeWidth="3"
-            strokeLinecap="round"
-            opacity="0.22"
-          />
-          <path
-            d="M70 150 L 92 138 C 98 134, 106 136, 110 142 L 124 160"
-            stroke="var(--paper)"
-            strokeWidth="3"
-            strokeLinecap="round"
-            opacity="0.22"
-          />
-          <circle cx="54" cy="42" r="5" fill="var(--hivis)" />
-          {/* Cord */}
-          <path
-            d="M96 168 C 108 178, 102 188, 114 192"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            opacity="0.35"
-          />
-        </svg>
-
-        <span className="phone-hero__chip phone-hero__chip--a">€570</span>
-        <span className="phone-hero__chip phone-hero__chip--b">€500</span>
-        <span className="phone-hero__chip phone-hero__chip--c">on tape</span>
-      </div>
-    </div>
+    <canvas
+      ref={canvasRef}
+      className="pointer-events-none fixed inset-0 z-50"
+      aria-hidden
+    />
   );
 }
