@@ -1,6 +1,7 @@
 # STATUS.md — ProcureCall
 
-> Last updated: 2026-07-19 03:00 CEST · all seven gates reached · production verified
+> Last updated: 2026-07-19 12:10 CEST · gates 1–3 and 5–7 verified in production ·
+> **Gate 4 OPEN** — blocked on the founder's golden voice run and the three videos
 
 **Production:** https://procurecall.vercel.app · repo: https://github.com/yatrinn/procurecall · CI: green
 
@@ -9,7 +10,7 @@
 | Gate | State |
 |---|---|
 | 1 Closed loop | DONE — verified live (intake → confirm → call → quote → decision) |
-| 2 Challenge compliance | DONE — 3 dynamic styles, itemized quotes, verified in-call improvement 895 → 805 EUR (−10.1%), structured outcomes, transcript refs on every line |
+| 2 Challenge compliance | DONE — 3 dynamic styles, itemized quotes, verified in-call improvement: 895 → 760 EUR net across the call (−135), of which 850 → 760 (−90) landed at the verified-leverage moment; structured outcomes, transcript refs on every line |
 | 3 Demo resilience | DONE — labeled verified replay, rate-limited live runs, scoped reset, no login |
 | 4 Submission-ready | **NOT DONE.** The package (scripts, manifest, checklist, svg) exists and production is verified — but no video is recorded, the golden VOICE run is not recorded, and submission-checklist.md is unchecked. Nothing is submission-ready until the founder records the voice run + three videos and personally checks the checklist in incognito. |
 | 5 Structural truth | DONE — tool-gated leverage (6 checks), lever tools absent unless authorized, post-call validator, adversarial suite with real results |
@@ -35,7 +36,8 @@
 - **Evidence:** every fee pinned to its moment; decision-room figures deep-link to the
   tape; audio scrubbing wired for voice recordings.
 - **Voice negotiation:** ElevenLabs buyer agent on our custom-LLM endpoint (same brain
-  and tools), human-roleplay transport from the board, 240 s cap + silence hangup,
+  and tools), human-roleplay transport from the board, 8-minute cap + 45 s silence
+  hangup with a visible countdown,
   recording capture to private storage. Endpoint smoke-tested in production.
 - **Demo:** /demo public, golden replay labeled, live runs rate-limited (per-IP +
   global + hourly call cap), reset removes visitor data only.
@@ -58,10 +60,10 @@
   ElevenLabs cascaded to a backup LLM and the agent stayed silent.
 - Click path for the golden run: /demo → "Voice call — you play the dispatcher" →
   pick supplier → "Start voice call" (repeat per supplier on the same board).
-- Voice budget used: ~6 minutes of session time across 3 verification runs (two of
-  them were the silent failed attempts). Subscription API exposes character_count
-  (2,350 of 131,000) but no separate agent-minute or concurrency field; one session
-  ran at a time without conflict.
+- Voice budget used: 652 seconds (~11 minutes) booked in voice_usage across all
+  verification runs and the founder's first live attempt — ~239 minutes remain.
+  Subscription API exposes character_count (4,653 of 131,000) but no separate
+  agent-minute or concurrency field; one session ran at a time without conflict.
 - Evidence anchors seek audio: clicking any figure in the decision room or a replay
   pin jumps the recording to that second.
 
@@ -80,5 +82,5 @@
 
 1. Record the three videos (scripts + shot list in /submission; keep each ≤ 60 s).
 2. One golden VOICE negotiation run for the demo video (board → "Voice call", play
-   the dispatcher; ~4 minutes of budget).
+   the dispatcher; up to 8 minutes per call, ~90 seconds per call suffices).
 3. Submit: production URL, repo, zip, videos, dataset manifest.

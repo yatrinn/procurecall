@@ -118,10 +118,11 @@ Base: `https://api.elevenlabs.io`, auth header `xi-api-key: <key>`. Docs pages: 
 - Intake agent: standard ElevenLabs agent (hosted LLM), private (`enable_auth`),
   browser sessions via signed URL. Transcript pulled after session; extraction into
   JobSpec reuses the document-intake extraction path.
-- Budget guards in code: `max_duration_seconds` 180 (intake) / 240 (negotiation),
-  `silence_end_call_timeout` ~15 s, server-side session gate that refuses to mint a
-  signed URL when the remaining subscription quota is low, voice reserved for loop
-  verification + golden run + final demo.
+- Budget guards in code: `max_duration_seconds` 180 (intake) / 480 (negotiation,
+  raised from 240 after real-call feedback), `silence_end_call_timeout` 45 s
+  (negotiation) with a visible countdown in the UI, server-side session gate that
+  refuses to mint a signed URL when the remaining subscription quota is low, voice
+  reserved for loop verification + golden run + final demo.
 
 ## OpenAI (verified 2026-07-18)
 

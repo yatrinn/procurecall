@@ -20,10 +20,11 @@ in sourced public rate cards, enforced by code.
 The differentiator is structural honesty. The buyer's only path to a competing figure
 is a server-side verification tool that checks quote status, fingerprint match,
 transcript evidence, expiry, and currency; unverified numbers never reach the model.
-In the recorded run, that verified leverage moved a quote from 895 € to 805 € during
-the call. A deterministic engine computes every total and ranking with reason codes —
-the model explains, it never chooses — and every figure in the decision room links to
-the second of the call where it was spoken. A post-call validator flags any claim no
-tool supported. Public demo, no login: https://procurecall.vercel.app/demo
+In the recorded run a quote fell from 895 € to 760 € net across the call — with the
+decisive 90 € step (850 € → 760 €) coming the moment the agent cited a verified
+competing quote. A deterministic engine computes every total and ranking with reason
+codes — the model explains, it never chooses — and every figure in the decision room
+links to the second of the call where it was spoken. A post-call validator flags any
+claim no tool supported. Public demo, no login: https://procurecall.vercel.app/demo
 
 *(Word count: ~270)*

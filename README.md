@@ -55,9 +55,10 @@ mechanism gates authority: an unauthorized lever's tool is absent from the sessi
 not merely discouraged. A post-call validator scans every transcript for commercial
 claims and checks — in code — whether a tool call supported them.
 
-In the recorded golden run this moved a quote from **895.00 € to 805.00 € net
-(−10.1 %) during the call**, because a competing supplier's confirmed,
-fingerprint-matched quote existed.
+In the recorded golden run the quote moved from **895.00 € to 760.00 € net across
+the call (−135.00 €)** — and the decisive step, **850.00 € → 760.00 € (−90.00 €),
+happened in the moment the agent cited a competing supplier's confirmed,
+fingerprint-matched quote returned by the verification tool.
 
 ## Architecture
 
@@ -68,7 +69,7 @@ fingerprint-matched quote existed.
   routes; quote lines cannot persist without a transcript reference
 - **ElevenLabs Agents** — voice intake agent; buyer voice agent whose LLM is this
   app's OpenAI-compatible endpoint, so voice and text tiers share one brain, one
-  tool surface, one truth layer; hard caps (240 s max, silence auto-hangup)
+  tool surface, one truth layer; hard caps (8-minute max, 45 s silence auto-hangup)
 - **OpenAI** — pinned snapshots (`gpt-5.5-2026-04-23`, `gpt-5.4-mini-2026-03-17`),
   strict structured outputs; deterministic engine does all arithmetic and ranking
 - **Simulated market** — supplier policies (price sheet, floor, concession ladder,
