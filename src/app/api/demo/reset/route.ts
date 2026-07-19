@@ -25,11 +25,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Reset already ran a moment ago.' }, { status: 429 });
     }
 
+    // The golden replay spec must survive every reset, even if it were ever
+    // mis-flagged as a demo run. Exclude it structurally, not by convention.
+    const { data: goldenSetting } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'demo_spec_id')
+      .maybeSingle();
+    const goldenSpecId = goldenSetting?.value ?? null;
+
     const { data: demoSpecs } = await supabase
       .from('job_specs')
       .select('id')
       .eq('is_demo_run', true);
-    const specIds = (demoSpecs ?? []).map((s) => s.id);
+    const specIds = (demoSpecs ?? []).map((s) => s.id).filter((id) => id !== goldenSpecId);
 
     let removedCalls = 0;
     if (specIds.length > 0) {

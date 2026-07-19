@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { CallTape, formatMs, type TapePin, type TapeTurn } from '@/components/call-tape';
 import { PrimaryButton, QuietButton } from '@/components/form';
@@ -29,7 +30,13 @@ export interface ReplaySession {
 
 const SPEED = 14; // replay time compression
 
-export function ReplayClient({ sessions }: { sessions: ReplaySession[] }) {
+export function ReplayClient({
+  sessions,
+  decisionHref,
+}: {
+  sessions: ReplaySession[];
+  decisionHref?: string | null;
+}) {
   const maxMs = useMemo(
     () => Math.max(...sessions.map((s) => s.duration_ms), 1),
     [sessions],
@@ -127,6 +134,23 @@ export function ReplayClient({ sessions }: { sessions: ReplaySession[] }) {
           </section>
         ))}
       </div>
+
+      {done && decisionHref ? (
+        <div className="mt-8 flex flex-wrap items-center gap-4 border border-ink bg-paper p-4">
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium">The run is over. Now the part that matters:</p>
+            <p className="mt-0.5 text-sm text-steel">
+              which of these three totals is actually the cheapest once every fee is counted.
+            </p>
+          </div>
+          <Link
+            href={decisionHref}
+            className="rounded-sm bg-ink px-4 py-2.5 text-sm font-medium text-paper transition-colors hover:bg-black"
+          >
+            Open the decision room
+          </Link>
+        </div>
+      ) : null}
     </div>
   );
 }

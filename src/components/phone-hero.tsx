@@ -9,22 +9,45 @@ const PHONE_PATH =
   'M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.24 1.02l-2.2 2.2z';
 
 const BLOOM_MS = 1000; // center cluster blooms into the handset
-const HOLD_MS = 900; // handset breathes in place
-const EXPAND_MS = 1700; // radial expansion across the screen
-const TOTAL_MS = BLOOM_MS + HOLD_MS + EXPAND_MS;
+const HOLD_MS = 1100; // handset breathes in place
+const EXPAND_MS = 1900; // spreads across the screen
+const LINGER_MS = 22000; // dispersed field drifts, reacts to the pointer, fades
+const TOTAL_MS = BLOOM_MS + HOLD_MS + EXPAND_MS + LINGER_MS;
+
+// Stainless-steel palette; the accent stays rare.
+const STEEL_COLORS: Array<{ color: string; weight: number }> = [
+  { color: '#9aa3ab', weight: 0.52 },
+  { color: '#7d8790', weight: 0.26 },
+  { color: '#b9c0c6', weight: 0.13 },
+  { color: '#5a6570', weight: 0.05 },
+  { color: '#c4d600', weight: 0.04 },
+];
+
+function pickColor(): string {
+  let r = Math.random();
+  for (const { color, weight } of STEEL_COLORS) {
+    if (r < weight) return color;
+    r -= weight;
+  }
+  return STEEL_COLORS[0].color;
+}
 
 interface Particle {
-  tx: number;
+  tx: number; // handset position
   ty: number;
-  dirX: number;
-  dirY: number;
-  reach: number;
+  fx: number; // dispersed field position after expansion
+  fy: number;
   r: number;
   color: string;
   alpha: number;
   delay: number;
   phase: number;
-  swirl: number;
+  driftX: number; // slow drift during the linger phase (px/s)
+  driftY: number;
+  wobbleAmp: number;
+  wobbleSpeed: number;
+  pushX: number; // smoothed pointer repulsion
+  pushY: number;
 }
 
 function subscribe() {
@@ -64,10 +87,11 @@ function sampleShape(): Array<{ x: number; y: number }> {
 }
 
 /**
- * One-shot homepage intro: a point cloud blooms from the center of the screen
- * into a telephone handset pictogram, breathes for a beat, then expands
- * radially in every direction and dissolves. Plays once per session; skipped
- * under prefers-reduced-motion.
+ * One-shot homepage intro: a stainless-steel point cloud blooms from the
+ * center into a telephone handset, breathes, then disperses across the whole
+ * screen where it lingers as a quiet drifting field that leans away from the
+ * pointer and slowly dissolves over ~25 seconds. Plays once per session;
+ * skipped under prefers-reduced-motion.
  */
 export function PhoneCloudIntro() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -88,40 +112,54 @@ export function PhoneCloudIntro() {
     canvas.height = h * dpr;
     ctx.scale(dpr, dpr);
 
-    // True screen center: the cloud must grow out of the middle.
     const cx = w / 2;
     const cy = h / 2;
     const shapeSize = Math.min(w, h) * 0.46;
-    // Far corner distance so the expansion covers the whole screen evenly.
-    const screenReach = Math.hypot(Math.max(cx, w - cx), Math.max(cy, h - cy)) * 1.15;
 
     const particles: Particle[] = sampleShape().map(({ x, y }) => {
       const tx = cx + x * shapeSize;
       const ty = cy + y * shapeSize;
-      // Radial direction from screen center through the particle's shape
-      // position, with a touch of jitter so rays do not look mechanical.
-      const jitter = 0.22;
+      // Field position: radially outward from the center through the shape
+      // position, distributed so the whole screen is covered but the dots
+      // stay on screen (that is what makes the field linger, not vanish).
+      const jitter = 0.3;
       let dirX = (tx - cx) / (shapeSize * 0.5) + (Math.random() - 0.5) * jitter;
       let dirY = (ty - cy) / (shapeSize * 0.5) + (Math.random() - 0.5) * jitter;
       const len = Math.hypot(dirX, dirY) || 1;
       dirX /= len;
       dirY /= len;
-      const r = Math.random();
-      const color = r < 0.06 ? '#c4d600' : r < 0.16 ? '#5a6570' : '#14181a';
+      const spread = 0.2 + Math.random() * 0.85;
+      const fx = cx + dirX * spread * (w / 2) * 0.96 + (Math.random() - 0.5) * 40;
+      const fy = cy + dirY * spread * (h / 2) * 0.96 + (Math.random() - 0.5) * 40;
       return {
         tx,
         ty,
-        dirX,
-        dirY,
-        reach: (0.5 + Math.random() * 0.65) * screenReach,
-        r: 1.1 + Math.random() * 1.5,
-        color,
-        alpha: 0.5 + Math.random() * 0.45,
+        fx: Math.max(8, Math.min(w - 8, fx)),
+        fy: Math.max(8, Math.min(h - 8, fy)),
+        r: 1.0 + Math.random() * 1.5,
+        color: pickColor(),
+        alpha: 0.55 + Math.random() * 0.4,
         delay: Math.random() * 180,
         phase: Math.random() * Math.PI * 2,
-        swirl: (Math.random() - 0.5) * 0.5,
+        driftX: (Math.random() - 0.5) * 7,
+        driftY: (Math.random() - 0.5) * 7,
+        wobbleAmp: 2 + Math.random() * 5,
+        wobbleSpeed: 0.00025 + Math.random() * 0.00035,
+        pushX: 0,
+        pushY: 0,
       };
     });
+
+    // Pointer interaction: the field gently leans away from the cursor.
+    const pointer = { x: -9999, y: -9999 };
+    const onPointerMove = (e: PointerEvent) => {
+      pointer.x = e.clientX;
+      pointer.y = e.clientY;
+    };
+    window.addEventListener('pointermove', onPointerMove, { passive: true });
+
+    const REPEL_RADIUS = 150;
+    const REPEL_STRENGTH = 34;
 
     let raf = 0;
     const start = performance.now();
@@ -151,18 +189,44 @@ export function PhoneCloudIntro() {
           x = p.tx + wob * 0.8;
           y = p.ty + Math.cos(now / 420 + p.phase) * 0.8;
           a = p.alpha;
-        } else {
-          // Expand: radial, eased, with a soft swirl; fades out at the edge.
-          const et = Math.min(1, (t - BLOOM_MS - HOLD_MS) / EXPAND_MS);
+        } else if (t < BLOOM_MS + HOLD_MS + EXPAND_MS) {
+          // Expand: glide out to the dispersed field position.
+          const et = (t - BLOOM_MS - HOLD_MS) / EXPAND_MS;
           const e = easeInOutCubic(et);
-          const d = p.reach * e;
-          const ang = p.swirl * e;
-          const dx = p.dirX * Math.cos(ang) - p.dirY * Math.sin(ang);
-          const dy = p.dirX * Math.sin(ang) + p.dirY * Math.cos(ang);
-          x = p.tx + dx * d;
-          y = p.ty + dy * d;
-          a = p.alpha * (1 - easeInOutCubic(et) * 0.35 - et * et * 0.65);
-          radius = p.r * (1 - et * 0.35);
+          x = p.tx + (p.fx - p.tx) * e;
+          y = p.ty + (p.fy - p.ty) * e;
+          a = p.alpha * (1 - 0.45 * e);
+        } else {
+          // Linger: a quiet field that drifts, wobbles, leans away from the
+          // pointer, and dissolves over LINGER_MS.
+          const lt = Math.min(1, (t - BLOOM_MS - HOLD_MS - EXPAND_MS) / LINGER_MS);
+          const seconds = (t - BLOOM_MS - HOLD_MS - EXPAND_MS) / 1000;
+          const bx =
+            p.fx + p.driftX * seconds + Math.sin(now * p.wobbleSpeed + p.phase) * p.wobbleAmp;
+          const by =
+            p.fy +
+            p.driftY * seconds +
+            Math.cos(now * p.wobbleSpeed * 1.13 + p.phase) * p.wobbleAmp;
+
+          const dx = bx - pointer.x;
+          const dy = by - pointer.y;
+          const dist = Math.hypot(dx, dy);
+          let targetPushX = 0;
+          let targetPushY = 0;
+          if (dist < REPEL_RADIUS && dist > 0.001) {
+            const force = (1 - dist / REPEL_RADIUS) * REPEL_STRENGTH;
+            targetPushX = (dx / dist) * force;
+            targetPushY = (dy / dist) * force;
+          }
+          p.pushX += (targetPushX - p.pushX) * 0.08;
+          p.pushY += (targetPushY - p.pushY) * 0.08;
+
+          x = bx + p.pushX;
+          y = by + p.pushY;
+          // Ease from the post-expansion level down to zero, slightly faster
+          // toward the end so the exit feels deliberate, not abrupt.
+          a = p.alpha * 0.55 * (1 - lt) * (1 - lt * 0.4);
+          radius = p.r * (1 - lt * 0.25);
         }
 
         ctx.globalAlpha = Math.max(0, a);
@@ -182,7 +246,10 @@ export function PhoneCloudIntro() {
     };
 
     raf = requestAnimationFrame(frame);
-    return () => cancelAnimationFrame(raf);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('pointermove', onPointerMove);
+    };
   }, [active]);
 
   if (!active) return null;
