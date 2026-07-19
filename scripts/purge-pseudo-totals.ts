@@ -17,7 +17,7 @@ const supabase = createClient(
 );
 
 const PSEUDO_TOTAL_PATTERN =
-  /(all[- ]in|firm quote|net hire total|hire period|before deposit|bundled|full[- ]job|confirmed .*total|five-day rental with delivery)/i;
+  /(all[- ]in|firm quote|net hire total|hire period|before deposit|bundled|full[- ]job|confirmed .*total|five-day rental with delivery|net total|total .*(rental|excluding|with delivery))/i;
 
 async function main() {
   const { data: lines } = await supabase

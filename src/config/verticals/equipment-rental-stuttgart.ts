@@ -200,7 +200,9 @@ export const equipmentRentalStuttgart: VerticalConfig = {
     { id: 'pickup', label: 'Pickup', typicallyMandatory: true },
     { id: 'insurance', label: 'Liability reduction', typicallyMandatory: true },
     { id: 'accessory', label: 'Accessories', typicallyMandatory: false },
-    { id: 'surcharge', label: 'Surcharges', typicallyMandatory: true },
+    // Not every yard HAS surcharges; an absent surcharge line is not an
+    // incomplete quote (the early-delivery question is still asked).
+    { id: 'surcharge', label: 'Surcharges', typicallyMandatory: false },
     { id: 'discount', label: 'Discounts', typicallyMandatory: false },
     { id: 'deposit', label: 'Deposit (refundable)', typicallyMandatory: false },
     { id: 'cleaning', label: 'Cleaning (conditional)', typicallyMandatory: false },

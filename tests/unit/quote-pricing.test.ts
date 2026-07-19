@@ -148,6 +148,62 @@ describe('computeQuoteTotals — totals never aggregate or go negative', () => {
     expect(totals.totalBeforeCents).toBe(89500);
   });
 
+  it("REGRESSION (the 79.50 report): Neckar's confirmed lines total exactly 795.00", () => {
+    // The real call: 540 rental → rate_reduced to 515 (event), plus 110
+    // delivery, 110 pickup, 60 liability; 300 deposit separate.
+    const totals = computeQuoteTotals({
+      vertical,
+      fields,
+      lines: [
+        l({ label: '5 business day rental', category: 'rental', amount_cents: 54000, unit: 'flat', turn_index: 4 }),
+        l({ label: 'delivery', category: 'delivery', amount_cents: 11000, unit: 'flat', turn_index: 4 }),
+        l({ label: 'pickup', category: 'pickup', amount_cents: 11000, unit: 'flat', turn_index: 4 }),
+        l({ label: 'mandatory liability reduction', category: 'insurance', amount_cents: 6000, unit: 'flat', turn_index: 4 }),
+        l({ label: 'deposit', category: 'deposit', amount_cents: 30000, unit: 'flat', turn_index: 5, is_mandatory: false }),
+        l({ label: 'late return day rate', category: 'late_fee', amount_cents: 11800, unit: 'per_day', turn_index: 8, is_mandatory: false, is_conditional: true }),
+      ],
+      concessions: [
+        { category_hint: 'rental reduced after competitive comparison', amount_before_cents: 54000, amount_after_cents: 51500 },
+      ],
+      modelClaimedTotalCents: 79500,
+    });
+    expect(totals.totalAfterCents).toBe(79500); // 795.00 EUR — never 7950
+    expect(totals.totalBeforeCents).toBe(82000);
+    expect(totals.breakdown.refundable_deposit_cents).toBe(30000);
+    expect(totals.engineDisagreesWithModel).toBe(false);
+    expect(totals.breakdown.is_benchmark_outlier).toBe(false);
+  });
+
+  it('PROPERTY: recomputing from persisted lines never shifts a total by a power of ten', () => {
+    // Pseudo-random quote generator (seeded, deterministic).
+    let seed = 42;
+    const rand = () => {
+      seed = (seed * 1103515245 + 12345) % 2147483648;
+      return seed / 2147483648;
+    };
+    for (let i = 0; i < 200; i++) {
+      const rentalCents = Math.round((30000 + rand() * 90000) / 100) * 100;
+      const lines = [
+        l({ label: 'rental', category: 'rental', amount_cents: rentalCents, unit: 'flat', turn_index: 2 }),
+        l({ label: 'delivery', category: 'delivery', amount_cents: Math.round(rand() * 20000), unit: 'flat', turn_index: 2 }),
+        l({ label: 'pickup', category: 'pickup', amount_cents: Math.round(rand() * 20000), unit: 'flat', turn_index: 2 }),
+        l({ label: 'liability', category: 'insurance', amount_cents: Math.round(rand() * 10000), unit: 'flat', turn_index: 2 }),
+      ];
+      const expectedSum = lines.reduce((s2, x) => s2 + x.amount_cents, 0);
+      const concessionDelta = rand() > 0.5 ? Math.round((rand() * rentalCents) / 4) : 0;
+      const concessions =
+        concessionDelta > 0
+          ? [{ category_hint: 'rental discount', amount_before_cents: rentalCents, amount_after_cents: rentalCents - concessionDelta }]
+          : [];
+      const first = computeQuoteTotals({ vertical, fields, lines, concessions, modelClaimedTotalCents: null });
+      // recompute from the same persisted state (what repair scripts do)
+      const second = computeQuoteTotals({ vertical, fields, lines, concessions, modelClaimedTotalCents: first.totalAfterCents });
+      expect(second.totalAfterCents).toBe(first.totalAfterCents); // idempotent
+      const ratio = first.totalAfterCents / (expectedSum - concessionDelta);
+      expect(Math.abs(Math.log10(ratio))).toBeLessThan(0.05); // no magnitude drift
+    }
+  });
+
   it('an absurd discount cannot drive the guaranteed total negative', () => {
     const totals = computeQuoteTotals({
       vertical,

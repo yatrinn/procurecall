@@ -163,4 +163,37 @@ describe('the 30%-below red-flag rule on THIS demo job (5 days, median 99.00/day
       expect(b.is_benchmark_outlier).toBe(false);
     }
   });
+
+  it('FIRES on a magnitude-corrupted total (79.50 for the whole 5-day job)', () => {
+    // A tenth of the real quote: every line divided by ten. The per-day rate
+    // check catches it, and the independent total-floor check would catch it
+    // even if the rental line looked plausible.
+    const b = computePriceBreakdown(
+      [
+        line({ label: 'rental', category: 'rental', amount_cents: 5150, unit: 'flat' }),
+        line({ label: 'delivery', category: 'delivery', amount_cents: 1100, unit: 'flat' }),
+        line({ label: 'pickup', category: 'pickup', amount_cents: 1100, unit: 'flat' }),
+        line({ label: 'liability', category: 'insurance', amount_cents: 600, unit: 'flat' }),
+      ],
+      baseCtx,
+    );
+    expect(b.guaranteed_net_cents).toBe(7950);
+    expect(b.is_benchmark_outlier).toBe(true);
+    expect(b.computation_notes.join(' ')).toMatch(/below the machine-only benchmark floor|far below/);
+  });
+
+  it('FIRES via the total floor even when the rental line alone looks plausible', () => {
+    // Rental per day 93 EUR (fine), but the guaranteed total got corrupted to
+    // a value below median × days × 70% — impossible for an honest quote.
+    const b = computePriceBreakdown(
+      [
+        line({ label: 'rental', category: 'rental', amount_cents: 46500, unit: 'flat' }),
+        line({ label: 'huge discount typo', category: 'discount', amount_cents: 20000, unit: 'flat', is_mandatory: false }),
+      ],
+      baseCtx,
+    );
+    // 465 − 200 = 265 EUR guaranteed < 346.50 floor (99 × 5 × 0.7)
+    expect(b.guaranteed_net_cents).toBe(26500);
+    expect(b.is_benchmark_outlier).toBe(true);
+  });
 });

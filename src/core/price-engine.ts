@@ -169,13 +169,34 @@ export function computePriceBreakdown(lines: PriceLine[], ctx: PriceContext): Pr
   }
 
   const rentalPerDay = days > 0 && normalizedRental > 0 ? Math.round(normalizedRental / days) : null;
-  const isOutlier =
+  const rentalOutlier =
     ctx.benchmarkMedianDailyCents !== null &&
     rentalPerDay !== null &&
     rentalPerDay < ctx.benchmarkMedianDailyCents * ctx.belowBenchmarkFraction;
-  if (isOutlier) {
+
+  // Second, independent red-flag layer on the GUARANTEED TOTAL: the total for
+  // the whole job includes transport and mandatory insurance on top of the
+  // machine, so a guaranteed total below the flagged machine-only floor
+  // (median day rate × days × fraction) is impossible in an honest quote.
+  // This catches corrupted or lowballed totals even when the per-line rental
+  // looks plausible — a magnitude slip (e.g. 79.50 instead of 795.00) can
+  // never pass silently.
+  const totalFloorCents =
+    ctx.benchmarkMedianDailyCents !== null
+      ? ctx.benchmarkMedianDailyCents * days * ctx.belowBenchmarkFraction
+      : null;
+  const totalOutlier =
+    totalFloorCents !== null && guaranteed > 0 && guaranteed < totalFloorCents;
+
+  const isOutlier = rentalOutlier || totalOutlier;
+  if (rentalOutlier) {
     notes.push(
       'Normalized rate is far below the public benchmark median. In this market a price far below the field usually means something is missing. Flagged for review, never auto-preferred.',
+    );
+  }
+  if (totalOutlier) {
+    notes.push(
+      `Guaranteed total (${guaranteed} cents) is below the machine-only benchmark floor for this job (${Math.round(totalFloorCents!)} cents = median day rate × ${days} days × ${Math.round(ctx.belowBenchmarkFraction * 100)}%). Either the quote is missing cost, or a figure is corrupted. Flagged for review, never auto-preferred.`,
     );
   }
 

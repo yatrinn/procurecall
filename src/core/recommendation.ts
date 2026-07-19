@@ -193,10 +193,21 @@ async function writeExplanation(
     const response = await openai().responses.create({
       model: MODELS.fast,
       instructions:
-        'You write the plain-language explanation under a procurement ranking that a deterministic engine already computed. You NEVER change or question the order — you explain it. Two to four short sentences, US English, operational tone, no marketing words. Cite concrete numbers. If a rank-1 exists, start with why it wins per the codes (lowest expected total, complete quote, no deposit...). Mention the strongest runner-up difference and any risk flags in plain words.',
+        'You write the plain-language explanation under a procurement ranking that a deterministic engine already computed. You NEVER change or question the order — you explain it. Two to four short sentences, US English, operational tone, no marketing words. Cite money amounts EXACTLY as they appear in the input — never reformat, rescale, or re-derive them. If a rank-1 exists, start with why it wins per the codes (lowest expected total, complete quote, no deposit...). Mention the strongest runner-up difference and any risk flags in plain words.',
       input: [{ role: 'user', content: `Computed ranking:\n${facts}` }],
     });
-    return response.output_text?.trim() || fallbackExplanation(ranking, byId, currency);
+    const text = response.output_text?.trim() ?? '';
+    // Numeric guard: the model only explains; if any decimal amount in its
+    // prose does not literally exist in the engine facts (a rescale like
+    // 795.00 → 79.50 would slip here), fall back to the deterministic text.
+    const allowed = new Set((facts.match(/\d+\.\d{2}/g) ?? []).map((n) => n));
+    const cited = text.match(/\d+\.\d{2}/g) ?? [];
+    const allCitedValid = cited.every((n) => allowed.has(n));
+    if (!text || !allCitedValid) {
+      console.error('explanation rejected by numeric guard:', { cited: cited.filter((n) => !allowed.has(n)) });
+      return fallbackExplanation(ranking, byId, currency);
+    }
+    return text;
   } catch {
     return fallbackExplanation(ranking, byId, currency);
   }
