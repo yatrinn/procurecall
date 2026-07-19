@@ -115,89 +115,92 @@ export async function POST(request: Request) {
     | { type: 'function_call'; call_id: string; name: string; arguments: string }
     | { type: 'function_call_output'; call_id: string; output: string };
 
-  let items: Item[] = history;
-  let finalText = '';
   const record = (r: ToolCallRecord) => newToolRecords.push(r);
 
-  for (let hop = 0; hop <= 6; hop++) {
-    const response = await openai().responses.create({
-      model: MODELS.reasoning,
-      instructions: systemPrompt,
-      input: items,
-      tools: toOpenAiTools(tools),
-      tool_choice: hop === 6 ? 'none' : 'auto',
-      store: false,
+  const runBrain = async (): Promise<string> => {
+    let items: Item[] = history;
+    for (let hop = 0; hop <= 6; hop++) {
+      const response = await openai().responses.create({
+        model: MODELS.reasoning,
+        instructions: systemPrompt,
+        input: items,
+        tools: toOpenAiTools(tools),
+        tool_choice: hop === 6 ? 'none' : 'auto',
+        store: false,
+      });
+      const functionCalls = response.output.filter((o) => o.type === 'function_call');
+      if (functionCalls.length === 0) {
+        const texts = response.output
+          .filter((o) => o.type === 'message')
+          .map((m) =>
+            m.content
+              .filter((c) => c.type === 'output_text')
+              .map((c) => c.text)
+              .join('')
+              .trim(),
+          )
+          .filter((t) => t.length > 0);
+        return texts[texts.length - 1] ?? '';
+      }
+      const outputs: Item[] = [];
+      for (const call of functionCalls) {
+        const result = await executeTool(
+          tools,
+          call.name,
+          call.arguments,
+          record,
+          turnIndex,
+          Date.now() - startedAtMs,
+        );
+        outputs.push({
+          type: 'function_call',
+          call_id: call.call_id,
+          name: call.name,
+          arguments: call.arguments,
+        });
+        outputs.push({
+          type: 'function_call_output',
+          call_id: call.call_id,
+          output: JSON.stringify(result),
+        });
+      }
+      items = [...items, ...outputs];
+    }
+    return '';
+  };
+
+  const persistTurn = async (finalText: string) => {
+    const transcript: TranscriptTurn[] = history.map((m, i) => ({
+      turn_index: i,
+      role: m.role === 'assistant' ? 'buyer' : 'supplier',
+      message: m.content,
+      at_ms: 0,
+    }));
+    transcript.push({
+      turn_index: transcript.length,
+      role: 'buyer',
+      message: finalText,
+      at_ms: Date.now() - startedAtMs,
     });
-    const functionCalls = response.output.filter((o) => o.type === 'function_call');
-    if (functionCalls.length === 0) {
-      const texts = response.output
-        .filter((o) => o.type === 'message')
-        .map((m) =>
-          m.content
-            .filter((c) => c.type === 'output_text')
-            .map((c) => c.text)
-            .join('')
-            .trim(),
-        )
-        .filter((t) => t.length > 0);
-      finalText = texts[texts.length - 1] ?? '';
-      break;
-    }
-    const outputs: Item[] = [];
-    for (const call of functionCalls) {
-      const result = await executeTool(
-        tools,
-        call.name,
-        call.arguments,
-        record,
-        turnIndex,
-        Date.now() - startedAtMs,
-      );
-      outputs.push({
-        type: 'function_call',
-        call_id: call.call_id,
-        name: call.name,
-        arguments: call.arguments,
-      });
-      outputs.push({
-        type: 'function_call_output',
-        call_id: call.call_id,
-        output: JSON.stringify(result),
-      });
-    }
-    items = [...items, ...outputs];
-  }
+    await supabase
+      .from('call_sessions')
+      .update({
+        status: 'in_progress',
+        tool_calls: [...existingToolCalls, ...newToolRecords],
+        transcript,
+        started_at: session.started_at ?? new Date(startedAtMs).toISOString(),
+      })
+      .eq('id', callId);
+  };
 
-  if (!finalText) finalText = 'Sorry, could you repeat that?';
-
-  // Persist accumulated tool calls + a transcript snapshot for the live board.
-  const transcript: TranscriptTurn[] = history.map((m, i) => ({
-    turn_index: i,
-    role: m.role === 'assistant' ? 'buyer' : 'supplier',
-    message: m.content,
-    at_ms: 0,
-  }));
-  transcript.push({
-    turn_index: transcript.length,
-    role: 'buyer',
-    message: finalText,
-    at_ms: Date.now() - startedAtMs,
-  });
-  await supabase
-    .from('call_sessions')
-    .update({
-      status: 'in_progress',
-      tool_calls: [...existingToolCalls, ...newToolRecords],
-      transcript,
-      started_at: session.started_at ?? new Date(startedAtMs).toISOString(),
-    })
-    .eq('id', callId);
-
-  // Stream back as OpenAI-compatible SSE.
+  // OpenAI-compatible SSE with an IMMEDIATE first byte: ElevenLabs cascades
+  // to a backup LLM when the endpoint stays silent, so we open the stream
+  // right away, heartbeat with empty deltas while the tool loop runs, then
+  // stream the utterance in sentence-sized chunks.
   const encoder = new TextEncoder();
   const id = `chatcmpl-${callId.slice(0, 8)}-${Date.now()}`;
   const stream = new ReadableStream({
-    start(controller) {
+    async start(controller) {
       const chunk = (delta: object, finish: string | null = null) =>
         controller.enqueue(
           encoder.encode(
@@ -211,12 +214,22 @@ export async function POST(request: Request) {
           ),
         );
       chunk({ role: 'assistant' });
-      // Sentence-sized chunks lower TTS latency.
+      const heartbeat = setInterval(() => chunk({}), 2500);
+      let finalText = '';
+      try {
+        finalText = await runBrain();
+      } catch (e) {
+        console.error('voice brain failed:', e);
+      } finally {
+        clearInterval(heartbeat);
+      }
+      if (!finalText) finalText = 'Sorry, could you repeat that?';
       const parts = finalText.match(/[^.!?]+[.!?]*\s*/g) ?? [finalText];
       for (const part of parts) chunk({ content: part });
       chunk({}, 'stop');
       controller.enqueue(encoder.encode('data: [DONE]\n\n'));
       controller.close();
+      await persistTurn(finalText).catch((e) => console.error('persist failed:', e));
     },
   });
   return new Response(stream, {
