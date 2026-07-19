@@ -17,13 +17,16 @@ generated (produced by running this system).
 
 ## 2. Supplier policy fixtures
 
-- File: `data/supplier-policies/equipment-rental-stuttgart.json`
-- Provenance: **simulated**, authored. Three private commercial policies (price
-  sheet, floor, concession ladder, disclosure policy, behavioral profile):
-  transparent premium, low headline, hard dispatcher. Supplier names are fictional
-  and every record is labeled simulated.
+- Files: `data/supplier-policies/equipment-rental-stuttgart.json` (three demo
+  policies: transparent premium, low headline, hard dispatcher),
+  `data/supplier-policies/moving-us.json` (two policies for the configuration-proof
+  vertical).
+- Provenance: **simulated**, authored. Private commercial policies (price sheet,
+  floor, concession ladder, disclosure policy, behavioral profile). Supplier names
+  are fictional and every record is labeled simulated.
 - Held-out evaluation profiles (unseen during development) ship in
-  `data/held-out-profiles/` and are used only by the evaluation lab.
+  `data/held-out-profiles/equipment-rental-stuttgart.json` (8 profiles) and are used
+  only by the evaluation lab.
 
 ## 3. Adversarial suite
 
