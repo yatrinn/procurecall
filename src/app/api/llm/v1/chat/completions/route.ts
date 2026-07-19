@@ -209,7 +209,10 @@ export async function POST(request: Request) {
   //    once so TTS starts while the tool loop still runs,
   // 3. then the utterance in sentence-sized chunks.
   const ACKS = ['Alright. ', 'Okay. ', 'Got it. ', 'One second. '];
-  const speakAck = history.length > 1;
+  // Turn 1 (the pickup) gets a natural greeting ack so the caller hears a
+  // voice within a second even while the brain composes the opening.
+  const isFirstTurn = history.length <= 1;
+  const speakAck = true;
   const requestStartedAt = Date.now();
   const encoder = new TextEncoder();
   const id = `chatcmpl-${callId.slice(0, 8)}-${Date.now()}`;
@@ -230,7 +233,7 @@ export async function POST(request: Request) {
       chunk({ role: 'assistant' });
       let ack = '';
       if (speakAck) {
-        ack = ACKS[Math.floor(Math.random() * ACKS.length)];
+        ack = isFirstTurn ? 'Good morning. ' : ACKS[Math.floor(Math.random() * ACKS.length)];
         chunk({ content: ack });
       }
       const firstContentMs = Date.now() - requestStartedAt;

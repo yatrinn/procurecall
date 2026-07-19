@@ -122,6 +122,11 @@ async function main() {
   let exchangeCount = 0;
   let closedByUs = false;
   const startedAt = Date.now();
+  // Time-to-first-audio measurement: from the end of OUR audio to the first
+  // agent audio chunk of the reply.
+  let lastDispatcherAudioEndedAt: number | null = null;
+  let awaitingReplyAudio = false;
+  const ttfaSamples: number[] = [];
 
   const sendAudio = async (text: string) => {
     const pcm = await ttsPcm16(text).catch((e) => {
@@ -140,6 +145,8 @@ async function main() {
       ws.send(JSON.stringify({ user_audio_chunk: silence.toString('base64') }));
       await new Promise((r) => setTimeout(r, 60));
     }
+    lastDispatcherAudioEndedAt = Date.now();
+    awaitingReplyAudio = true;
   };
 
   await new Promise<void>((resolve, reject) => {
@@ -193,6 +200,12 @@ async function main() {
       if (event.type === 'audio') {
         audioOutChunks++;
         audioOutBytes += Buffer.from(event.audio_event!.audio_base_64, 'base64').length;
+        if (awaitingReplyAudio && lastDispatcherAudioEndedAt !== null) {
+          const ttfa = Date.now() - lastDispatcherAudioEndedAt;
+          ttfaSamples.push(ttfa);
+          console.log(`time-to-first-audio: ${ttfa} ms`);
+          awaitingReplyAudio = false;
+        }
       }
       if (event.type === 'agent_response') {
         const buyerLine = event.agent_response_event?.agent_response ?? '';
@@ -229,6 +242,11 @@ async function main() {
   console.log(
     `audio OUT: ${audioOutChunks} chunks, ${(audioOutBytes / 1024).toFixed(0)} KiB | call ~${callSeconds}s`,
   );
+  if (ttfaSamples.length > 0) {
+    console.log(
+      `time-to-first-audio samples (ms): ${ttfaSamples.join(', ')} | median ${[...ttfaSamples].sort((a, b) => a - b)[Math.floor(ttfaSamples.length / 2)]}`,
+    );
+  }
   if (!conversationId) throw new Error('no conversation id — initiation failed');
 
   // 3. Finalize on production
