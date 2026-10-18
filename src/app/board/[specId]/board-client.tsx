@@ -104,10 +104,13 @@ function eur(cents: number | null | undefined): string {
 export function BoardClient({
   specId,
   supplierIds,
+  suppliers: seededSuppliers = [],
   voiceOpen = false,
 }: {
   specId: string;
   supplierIds: string[];
+  /** Server-seeded list so voice can dial before the board fetch returns. */
+  suppliers?: Array<{ id: string; name: string }>;
   voiceOpen?: boolean;
 }) {
   const [state, setState] = useState<BoardState | null>(null);
@@ -219,6 +222,14 @@ export function BoardClient({
   const hasSessions = (state?.sessions.length ?? 0) > 0;
   const allDone = hasSessions && !anyRunning;
 
+  const voiceSuppliers = useMemo(() => {
+    const fromBoard = (state?.suppliers ?? [])
+      .filter((s) => supplierIds.includes(s.id))
+      .map((s) => ({ id: s.id, name: s.name }));
+    if (fromBoard.length > 0) return fromBoard;
+    return seededSuppliers.filter((s) => supplierIds.includes(s.id));
+  }, [state?.suppliers, supplierIds, seededSuppliers]);
+
   const supplierOf = useMemo(() => {
     const map = new Map<string, SupplierDto>();
     for (const s of state?.suppliers ?? []) map.set(s.id, s);
@@ -257,9 +268,7 @@ export function BoardClient({
 
       <VoiceCallPanel
         specId={specId}
-        suppliers={(state?.suppliers ?? [])
-          .filter((s) => supplierIds.includes(s.id))
-          .map((s) => ({ id: s.id, name: s.name }))}
+        suppliers={voiceSuppliers}
         onCompleted={refresh}
         defaultOpen={voiceOpen}
       />

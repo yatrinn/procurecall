@@ -1,160 +1,36 @@
 import Link from 'next/link';
+import { Suspense } from 'react';
 import { Shell } from '@/components/shell';
-import { supabaseAdmin } from '@/integrations/supabase-server';
-import { getAppSetting } from '@/integrations/elevenlabs-server';
 import { getVertical, DEFAULT_VERTICAL_SLUG } from '@/config/verticals';
-import { derivePins, type PinSourceEvent, type PinSourceSession } from '@/components/derive-pins';
-import { ReplayClient, RunLive, TalkToAgent, type ReplaySession } from './replay-client';
-import type { TapeTurn } from '@/components/call-tape';
+import { getDemoReplay } from '@/core/demo-replay';
+import { ReplayClient, RunLive, TalkToAgent } from './replay-client';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 120;
 export const metadata = { title: 'Demo | ProcureCall' };
 
-const BEHAVIOR_LABELS: Record<string, string> = {
-  transparent_premium: 'transparent premium',
-  low_headline: 'low headline, fees on request',
-  hard_dispatcher: 'hard dispatcher',
-};
+function ReplaySkeleton() {
+  return (
+    <div className="mt-12 space-y-4 sm:mt-14" aria-hidden>
+      <div className="h-4 w-24 animate-pulse bg-line" />
+      <div className="h-7 w-48 animate-pulse bg-line" />
+      <div className="h-40 animate-pulse bg-line/60" />
+      <div className="h-40 animate-pulse bg-line/60" />
+    </div>
+  );
+}
 
-export default async function DemoPage() {
-  const vertical = getVertical(DEFAULT_VERTICAL_SLUG);
-  const supabase = supabaseAdmin();
-
-  const [specId, callIdsJson] = await Promise.all([
-    getAppSetting('demo_spec_id'),
-    getAppSetting('demo_call_ids'),
-  ]);
-
-  let replaySessions: ReplaySession[] = [];
-  let fingerprint: string | null = null;
-  let decisionHref: string | null = null;
-
-  if (specId && callIdsJson) {
-    const callIds = JSON.parse(callIdsJson) as string[];
-    const [{ data: spec }, { data: sessions }, { data: quotes }, { data: events }, { data: suppliers }, { data: policies }] =
-      await Promise.all([
-        supabase.from('job_specs').select('spec_fingerprint').eq('id', specId).single(),
-        supabase
-          .from('call_sessions')
-          .select(
-            'id, supplier_id, transcript, tool_calls, friction_events, disclosure_event, outcome, outcome_type, recording_url',
-          )
-          .in('id', callIds),
-        supabase
-          .from('quotes')
-          .select('call_id, total_before_negotiation_cents, total_after_negotiation_cents, currency')
-          .in('call_id', callIds),
-        supabase
-          .from('negotiation_events')
-          .select(
-            'id, call_id, event_type, concession_type, amount_before_cents, amount_after_cents, transcript_ref',
-          )
-          .in('call_id', callIds),
-        supabase.from('suppliers').select('id, name, location'),
-        supabase.from('supplier_policies').select('supplier_id, behavior_profile'),
-      ]);
-
-    fingerprint = spec?.spec_fingerprint ?? null;
-    decisionHref = `/decision/${specId}`;
-
-    replaySessions = (
-      await Promise.all(
-        callIds.map(async (callId) => {
-          const session = sessions?.find((s) => s.id === callId);
-          if (!session) return null;
-          const supplier = suppliers?.find((s) => s.id === session.supplier_id);
-          const behavior =
-            policies?.find((p) => p.supplier_id === session.supplier_id)?.behavior_profile ?? '';
-          const quote = quotes?.find((q) => q.call_id === callId);
-          const transcript = session.transcript as TapeTurn[];
-          const lastTurn = transcript[transcript.length - 1];
-          const outcome = session.outcome as { summary?: string } | null;
-
-          // Voice runs carry a private recording; hand the client a signed URL.
-          let audioUrl: string | null = null;
-          if (session.recording_url) {
-            if (session.recording_url.startsWith('http')) {
-              audioUrl = session.recording_url;
-            } else {
-              const { data: signed } = await supabase.storage
-                .from('call-audio')
-                .createSignedUrl(session.recording_url, 3600);
-              audioUrl = signed?.signedUrl ?? null;
-            }
-          }
-
-          return {
-            id: session.id,
-            supplier_name: supplier?.name ?? 'Supplier',
-            supplier_location: supplier?.location ?? null,
-            behavior_label: BEHAVIOR_LABELS[behavior] ?? behavior,
-            turns: transcript,
-            pins: derivePins(session as unknown as PinSourceSession, (events ?? []) as PinSourceEvent[]),
-            duration_ms: (lastTurn?.at_ms ?? 0) + 4000,
-            outcome_line: outcome?.summary ?? '',
-            quote_before_cents: quote?.total_before_negotiation_cents ?? null,
-            quote_after_cents: quote?.total_after_negotiation_cents ?? null,
-            audio_url: audioUrl,
-            currency: quote?.currency ?? 'EUR',
-          } satisfies ReplaySession;
-        }),
-      )
-    ).filter((x): x is ReplaySession => x !== null);
-  }
+async function DemoBody() {
+  const { fingerprint, decisionHref, sessions: replaySessions } = await getDemoReplay();
 
   return (
-    <Shell
-      nav={[
-        { href: '/', label: 'Overview' },
-        { href: '/request', label: 'New request' },
-        { href: '/demo', label: 'Demo' },
-      ]}
-    >
-      <div className="max-w-3xl">
-        <p className="text-sm text-steel">Public demo. No login.</p>
-        <h1 className="display mt-2 text-3xl sm:text-4xl">
-          Same job.
-          <br />
-          Three different calls.
-        </h1>
-        <p className="mt-4 max-w-2xl text-base text-steel sm:text-sm">
-          Brief: {vertical.demoRequestSummary}. One supplier quotes clean, one hides fees, one
-          stonewalls. The demo walks you through what happened and what it was worth.
+    <>
+      {fingerprint ? (
+        <p className="mt-5 text-sm">
+          <span className="text-steel">Locked request ID </span>
+          <span className="figure text-verified">{fingerprint.slice(0, 12)}</span>
+          <span className="text-steel">. Same on every call in this run.</span>
         </p>
-        <div className="mt-6 grid max-w-2xl gap-2 sm:grid-cols-3 sm:gap-3">
-          <a
-            href="#watch"
-            className="group border border-line bg-paper p-3 transition-colors hover:border-steel"
-          >
-            <span className="figure text-xs text-steel">Step 1</span>
-            <p className="mt-1 text-sm font-medium">Watch the calls</p>
-            <p className="mt-0.5 text-xs text-steel">Fees pin to each tape as they were said</p>
-          </a>
-          <a
-            href="#decision"
-            className="group border border-line bg-paper p-3 transition-colors hover:border-steel"
-          >
-            <span className="figure text-xs text-steel">Step 2</span>
-            <p className="mt-1 text-sm font-medium">See who won</p>
-            <p className="mt-0.5 text-xs text-steel">Ranked totals, every number has evidence</p>
-          </a>
-          <a
-            href="#talk"
-            className="group border border-line bg-paper p-3 transition-colors hover:border-steel"
-          >
-            <span className="figure text-xs text-steel">Step 3</span>
-            <p className="mt-1 text-sm font-medium">Take a call yourself</p>
-            <p className="mt-0.5 text-xs text-steel">You play the dispatcher, live over your mic</p>
-          </a>
-        </div>
-        {fingerprint ? (
-          <p className="mt-5 text-sm">
-            <span className="text-steel">Locked request ID </span>
-            <span className="figure text-verified">{fingerprint.slice(0, 12)}</span>
-            <span className="text-steel">. Same on every call in this run.</span>
-          </p>
-        ) : null}
-      </div>
+      ) : null}
 
       {replaySessions.length > 0 ? (
         <section id="watch" className="mt-12 scroll-mt-6 sm:mt-14">
@@ -224,6 +100,57 @@ export default async function DemoPage() {
           </div>
         </section>
       ) : null}
+    </>
+  );
+}
+
+export default function DemoPage() {
+  const vertical = getVertical(DEFAULT_VERTICAL_SLUG);
+
+  return (
+    <Shell>
+      <div className="max-w-3xl">
+        <p className="text-sm text-steel">Public demo. No login.</p>
+        <h1 className="display mt-2 text-3xl sm:text-4xl">
+          Same job.
+          <br />
+          Three different calls.
+        </h1>
+        <p className="mt-4 max-w-2xl text-base text-steel sm:text-sm">
+          Brief: {vertical.demoRequestSummary}. One supplier quotes clean, one hides fees, one
+          stonewalls. The demo walks you through what happened and what it was worth.
+        </p>
+        <div className="mt-6 grid max-w-2xl gap-2 sm:grid-cols-3 sm:gap-3">
+          <a
+            href="#watch"
+            className="group border border-line bg-paper p-3 transition-colors hover:border-steel"
+          >
+            <span className="figure text-xs text-steel">Step 1</span>
+            <p className="mt-1 text-sm font-medium">Watch the calls</p>
+            <p className="mt-0.5 text-xs text-steel">Fees pin to each tape as they were said</p>
+          </a>
+          <a
+            href="#decision"
+            className="group border border-line bg-paper p-3 transition-colors hover:border-steel"
+          >
+            <span className="figure text-xs text-steel">Step 2</span>
+            <p className="mt-1 text-sm font-medium">See who won</p>
+            <p className="mt-0.5 text-xs text-steel">Ranked totals, every number has evidence</p>
+          </a>
+          <a
+            href="#talk"
+            className="group border border-line bg-paper p-3 transition-colors hover:border-steel"
+          >
+            <span className="figure text-xs text-steel">Step 3</span>
+            <p className="mt-1 text-sm font-medium">Take a call yourself</p>
+            <p className="mt-0.5 text-xs text-steel">You play the dispatcher, live over your mic</p>
+          </a>
+        </div>
+      </div>
+
+      <Suspense fallback={<ReplaySkeleton />}>
+        <DemoBody />
+      </Suspense>
 
       <section id="talk" className="mt-12 scroll-mt-6 border border-line bg-paper p-5 sm:mt-14 sm:p-6">
         <p className="figure text-xs text-steel">Step 3</p>
@@ -262,9 +189,7 @@ export default async function DemoPage() {
             Suppliers are simulated and labeled. Prices are grounded in public rate cards; how
             each dispatcher behaves is private policy, not a fixed script.
           </li>
-          <li>
-            The replay is a recorded run re-shown as-is. A live run can end differently.
-          </li>
+          <li>The replay is a recorded run re-shown as-is. A live run can end differently.</li>
           <li>
             A competing price can only be cited after it was verified. No invented leverage.
           </li>

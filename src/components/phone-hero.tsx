@@ -1,20 +1,20 @@
 'use client';
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { HANDSET_POINTS } from './phone-handset-points';
 
-const SESSION_KEY = 'pc-phone-intro-played';
-
-/** Classic handset pictogram (Material "call", 24x24 viewBox). */
-const PHONE_PATH =
-  'M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.24 1.02l-2.2 2.2z';
-
-const BLOOM_MS = 1000; // center cluster blooms into the handset
-const HOLD_MS = 1100; // handset breathes in place
-const EXPAND_MS = 1900; // spreads across the screen
-const LINGER_MS = 22000; // dispersed field drifts, reacts to the pointer, fades
+const BLOOM_MS = 900;
+const HOLD_MS = 1000;
+const EXPAND_MS = 1600;
+const LINGER_MS = 14000;
 const TOTAL_MS = BLOOM_MS + HOLD_MS + EXPAND_MS + LINGER_MS;
+const REDUCED_TOTAL_MS = 2200;
 
-// Stainless-steel palette; the accent stays rare.
+/** Peak opacity while the handset is fully formed (before it settles). */
+const FORMED_ALPHA = 0.72;
+/** Watermark opacity after expand — text stays readable underneath. */
+const WATERMARK_ALPHA = 0.16;
+
 const STEEL_COLORS: Array<{ color: string; weight: number }> = [
   { color: '#9aa3ab', weight: 0.52 },
   { color: '#7d8790', weight: 0.26 },
@@ -33,140 +33,145 @@ function pickColor(): string {
 }
 
 interface Particle {
-  tx: number; // handset position
-  ty: number;
-  fx: number; // dispersed field position after expansion
-  fy: number;
+  nx: number;
+  ny: number;
   r: number;
   color: string;
   alpha: number;
   delay: number;
   phase: number;
-  driftX: number; // slow drift during the linger phase (px/s)
-  driftY: number;
   wobbleAmp: number;
   wobbleSpeed: number;
-  pushX: number; // smoothed pointer repulsion
+  pushX: number;
   pushY: number;
 }
 
-function subscribe() {
-  return () => {};
+function prefersReducedMotion(): boolean {
+  try {
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  } catch {
+    return false;
+  }
 }
 
-function readShouldPlay(): boolean {
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
-  return sessionStorage.getItem(SESSION_KEY) !== '1';
+function viewportSize(): { w: number; h: number } {
+  const vv = window.visualViewport;
+  return {
+    w: Math.max(1, Math.floor(vv?.width ?? window.innerWidth)),
+    h: Math.max(1, Math.floor(vv?.height ?? window.innerHeight)),
+  };
 }
 
 const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
 const easeInOutCubic = (t: number) =>
   t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 
-/** Sample the handset glyph into normalized points in [-0.5, 0.5]. */
-function sampleShape(): Array<{ x: number; y: number }> {
-  const S = 240;
-  const off = document.createElement('canvas');
-  off.width = S;
-  off.height = S;
-  const ctx = off.getContext('2d');
-  if (!ctx) return [];
-  ctx.scale(S / 24, S / 24);
-  ctx.fill(new Path2D(PHONE_PATH));
-  const data = ctx.getImageData(0, 0, S, S).data;
-  const points: Array<{ x: number; y: number }> = [];
-  const step = 4;
-  for (let py = 0; py < S; py += step) {
-    for (let px = 0; px < S; px += step) {
-      if (data[(py * S + px) * 4 + 3] > 128) {
-        points.push({ x: px / S - 0.5, y: py / S - 0.5 });
-      }
-    }
-  }
-  return points;
-}
+const subscribeNoop = () => () => {};
+const getClientSnapshot = () => true;
+const getServerSnapshot = () => false;
 
 /**
- * One-shot homepage intro: a stainless-steel point cloud blooms from the
- * center into a telephone handset, breathes, then disperses across the whole
- * screen where it lingers as a quiet drifting field that leans away from the
- * pointer and slowly dissolves over ~25 seconds. Plays once per session;
- * skipped under prefers-reduced-motion.
+ * Homepage intro: stainless-steel points bloom into a telephone handset on
+ * every visit to Overview. Drawn behind page content so copy stays readable.
  */
 export function PhoneCloudIntro() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const shouldPlay = useSyncExternalStore(subscribe, readShouldPlay, () => false);
+  const mounted = useSyncExternalStore(subscribeNoop, getClientSnapshot, getServerSnapshot);
   const [finished, setFinished] = useState(false);
-  const active = shouldPlay && !finished;
+  const active = mounted && !finished;
 
   useEffect(() => {
     if (!active) return;
     const canvas = canvasRef.current;
-    const ctx = canvas?.getContext('2d');
-    if (!canvas || !ctx) return;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d', { alpha: true });
+    if (!ctx) return;
 
-    const w = window.innerWidth;
-    const h = window.innerHeight;
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    canvas.width = w * dpr;
-    canvas.height = h * dpr;
-    ctx.scale(dpr, dpr);
+    const reduced = prefersReducedMotion();
+    let { w, h } = viewportSize();
+    const isNarrow = w < 640;
+    const dpr = Math.min(window.devicePixelRatio || 1, isNarrow ? 1.5 : 2);
 
-    const cx = w / 2;
-    const cy = h / 2;
-    const shapeSize = Math.min(w, h) * 0.46;
-
-    const particles: Particle[] = sampleShape().map(({ x, y }) => {
-      const tx = cx + x * shapeSize;
-      const ty = cy + y * shapeSize;
-      // Field position: radially outward from the center through the shape
-      // position, distributed so the whole screen is covered but the dots
-      // stay on screen (that is what makes the field linger, not vanish).
-      const jitter = 0.3;
-      let dirX = (tx - cx) / (shapeSize * 0.5) + (Math.random() - 0.5) * jitter;
-      let dirY = (ty - cy) / (shapeSize * 0.5) + (Math.random() - 0.5) * jitter;
-      const len = Math.hypot(dirX, dirY) || 1;
-      dirX /= len;
-      dirY /= len;
-      const spread = 0.2 + Math.random() * 0.85;
-      const fx = cx + dirX * spread * (w / 2) * 0.96 + (Math.random() - 0.5) * 40;
-      const fy = cy + dirY * spread * (h / 2) * 0.96 + (Math.random() - 0.5) * 40;
-      return {
-        tx,
-        ty,
-        fx: Math.max(8, Math.min(w - 8, fx)),
-        fy: Math.max(8, Math.min(h - 8, fy)),
-        r: 1.0 + Math.random() * 1.5,
-        color: pickColor(),
-        alpha: 0.55 + Math.random() * 0.4,
-        delay: Math.random() * 180,
-        phase: Math.random() * Math.PI * 2,
-        driftX: (Math.random() - 0.5) * 7,
-        driftY: (Math.random() - 0.5) * 7,
-        wobbleAmp: 2 + Math.random() * 5,
-        wobbleSpeed: 0.00025 + Math.random() * 0.00035,
-        pushX: 0,
-        pushY: 0,
-      };
-    });
-
-    // Pointer interaction: the field gently leans away from the cursor.
-    const pointer = { x: -9999, y: -9999 };
-    const onPointerMove = (e: PointerEvent) => {
-      pointer.x = e.clientX;
-      pointer.y = e.clientY;
+    const resizeCanvas = () => {
+      ({ w, h } = viewportSize());
+      canvas.width = Math.floor(w * dpr);
+      canvas.height = Math.floor(h * dpr);
+      canvas.style.width = `${w}px`;
+      canvas.style.height = `${h}px`;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     };
-    window.addEventListener('pointermove', onPointerMove, { passive: true });
+    resizeCanvas();
 
-    const REPEL_RADIUS = 150;
-    const REPEL_STRENGTH = 34;
+    // Formed handset: centered, readable as a pictogram.
+    const formedSize = () => Math.min(w, h) * (isNarrow ? 0.5 : 0.42);
+    const formedCx = () => w / 2;
+    const formedCy = () => h * (isNarrow ? 0.42 : 0.45);
+
+    // Settled watermark: same silhouette, larger, parked so hero copy on the
+    // left stays clear (desktop) / sits softly behind the upper band (mobile).
+    const settledSize = () => Math.min(w, h) * (isNarrow ? 0.72 : 0.62);
+    const settledCx = () => (isNarrow ? w * 0.55 : w * 0.72);
+    const settledCy = () => (isNarrow ? h * 0.22 : h * 0.36);
+
+    const stride = isNarrow ? 2 : 1;
+    const shape = HANDSET_POINTS.filter((_, i) => i % stride === 0);
+    if (shape.length === 0) return;
+
+    const particles: Particle[] = shape.map(([nx, ny]) => ({
+      nx,
+      ny,
+      r: (isNarrow ? 1.5 : 1.05) + Math.random() * (isNarrow ? 1.4 : 1.2),
+      color: pickColor(),
+      alpha: 0.85 + Math.random() * 0.15,
+      delay: Math.random() * (isNarrow ? 80 : 140),
+      phase: Math.random() * Math.PI * 2,
+      wobbleAmp: 0.6 + Math.random() * 1.2,
+      wobbleSpeed: 0.0002 + Math.random() * 0.00025,
+      pushX: 0,
+      pushY: 0,
+    }));
+
+    const pointer = { x: -9999, y: -9999 };
+    const onPointer = (e: PointerEvent | TouchEvent) => {
+      if ('touches' in e) {
+        const t = e.touches[0];
+        if (!t) return;
+        pointer.x = t.clientX;
+        pointer.y = t.clientY;
+      } else {
+        pointer.x = e.clientX;
+        pointer.y = e.clientY;
+      }
+    };
+    window.addEventListener('pointermove', onPointer, { passive: true });
+    window.addEventListener('pointerdown', onPointer, { passive: true });
+    window.addEventListener('touchstart', onPointer, { passive: true });
+    window.addEventListener('touchmove', onPointer, { passive: true });
+    window.addEventListener('resize', resizeCanvas, { passive: true });
+    window.visualViewport?.addEventListener('resize', resizeCanvas);
+
+    const REPEL_RADIUS = isNarrow ? 90 : 120;
+    const REPEL_STRENGTH = 14;
+    const duration = reduced ? REDUCED_TOTAL_MS : TOTAL_MS;
 
     let raf = 0;
     const start = performance.now();
 
+    const handsetPoint = (nx: number, ny: number, size: number, ox: number, oy: number) => ({
+      x: ox + nx * size,
+      y: oy + ny * size,
+    });
+
     const frame = (now: number) => {
       const elapsed = now - start;
       ctx.clearRect(0, 0, w, h);
+
+      const fSize = formedSize();
+      const fCx = formedCx();
+      const fCy = formedCy();
+      const sSize = settledSize();
+      const sCx = settledCx();
+      const sCy = settledCy();
 
       for (const p of particles) {
         const t = elapsed - p.delay;
@@ -177,36 +182,46 @@ export function PhoneCloudIntro() {
         let a: number;
         let radius = p.r;
 
-        if (t < BLOOM_MS) {
-          // Bloom: from a tight cluster at the exact center out to the shape.
+        if (reduced) {
+          const fadeIn = Math.min(1, t / 400);
+          const fadeOut =
+            t > REDUCED_TOTAL_MS - 600 ? 1 - (t - (REDUCED_TOTAL_MS - 600)) / 600 : 1;
+          const pt = handsetPoint(p.nx, p.ny, fSize, fCx, fCy);
+          x = pt.x;
+          y = pt.y;
+          a = FORMED_ALPHA * p.alpha * easeOutCubic(fadeIn) * Math.max(0, fadeOut);
+        } else if (t < BLOOM_MS) {
+          // Bloom from center into the handset silhouette.
           const e = easeOutCubic(t / BLOOM_MS);
-          x = cx + (p.tx - cx) * e;
-          y = cy + (p.ty - cy) * e;
-          a = p.alpha * Math.min(1, t / 260);
+          const pt = handsetPoint(p.nx, p.ny, fSize, fCx, fCy);
+          x = fCx + (pt.x - fCx) * e;
+          y = fCy + (pt.y - fCy) * e;
+          a = FORMED_ALPHA * p.alpha * Math.min(1, t / 220);
         } else if (t < BLOOM_MS + HOLD_MS) {
-          // Hold: the handset breathes very slightly.
-          const wob = Math.sin(now / 380 + p.phase);
-          x = p.tx + wob * 0.8;
-          y = p.ty + Math.cos(now / 420 + p.phase) * 0.8;
-          a = p.alpha;
+          const pt = handsetPoint(p.nx, p.ny, fSize, fCx, fCy);
+          const wob = Math.sin(now / 420 + p.phase);
+          x = pt.x + wob * 0.5;
+          y = pt.y + Math.cos(now / 460 + p.phase) * 0.5;
+          a = FORMED_ALPHA * p.alpha;
         } else if (t < BLOOM_MS + HOLD_MS + EXPAND_MS) {
-          // Expand: glide out to the dispersed field position.
+          // Settle: same silhouette, larger + shifted — never a scatter field.
           const et = (t - BLOOM_MS - HOLD_MS) / EXPAND_MS;
           const e = easeInOutCubic(et);
-          x = p.tx + (p.fx - p.tx) * e;
-          y = p.ty + (p.fy - p.ty) * e;
-          a = p.alpha * (1 - 0.45 * e);
+          const size = fSize + (sSize - fSize) * e;
+          const ox = fCx + (sCx - fCx) * e;
+          const oy = fCy + (sCy - fCy) * e;
+          const pt = handsetPoint(p.nx, p.ny, size, ox, oy);
+          x = pt.x;
+          y = pt.y;
+          const alphaTarget = FORMED_ALPHA + (WATERMARK_ALPHA - FORMED_ALPHA) * e;
+          a = alphaTarget * p.alpha;
+          radius = p.r * (1 + 0.15 * e);
         } else {
-          // Linger: a quiet field that drifts, wobbles, leans away from the
-          // pointer, and dissolves over LINGER_MS.
+          // Linger as a quiet watermark of the handset, then dissolve.
           const lt = Math.min(1, (t - BLOOM_MS - HOLD_MS - EXPAND_MS) / LINGER_MS);
-          const seconds = (t - BLOOM_MS - HOLD_MS - EXPAND_MS) / 1000;
-          const bx =
-            p.fx + p.driftX * seconds + Math.sin(now * p.wobbleSpeed + p.phase) * p.wobbleAmp;
-          const by =
-            p.fy +
-            p.driftY * seconds +
-            Math.cos(now * p.wobbleSpeed * 1.13 + p.phase) * p.wobbleAmp;
+          const pt = handsetPoint(p.nx, p.ny, sSize, sCx, sCy);
+          const bx = pt.x + Math.sin(now * p.wobbleSpeed + p.phase) * p.wobbleAmp;
+          const by = pt.y + Math.cos(now * p.wobbleSpeed * 1.1 + p.phase) * p.wobbleAmp;
 
           const dx = bx - pointer.x;
           const dy = by - pointer.y;
@@ -218,15 +233,14 @@ export function PhoneCloudIntro() {
             targetPushX = (dx / dist) * force;
             targetPushY = (dy / dist) * force;
           }
-          p.pushX += (targetPushX - p.pushX) * 0.08;
-          p.pushY += (targetPushY - p.pushY) * 0.08;
+          p.pushX += (targetPushX - p.pushX) * 0.06;
+          p.pushY += (targetPushY - p.pushY) * 0.06;
 
           x = bx + p.pushX;
           y = by + p.pushY;
-          // Ease from the post-expansion level down to zero, slightly faster
-          // toward the end so the exit feels deliberate, not abrupt.
-          a = p.alpha * 0.55 * (1 - lt) * (1 - lt * 0.4);
-          radius = p.r * (1 - lt * 0.25);
+          // Ease out gently; stay readable as a shape until late fade.
+          a = WATERMARK_ALPHA * p.alpha * (1 - lt) * (1 - lt * 0.35);
+          radius = p.r * 1.15 * (1 - lt * 0.2);
         }
 
         ctx.globalAlpha = Math.max(0, a);
@@ -237,10 +251,9 @@ export function PhoneCloudIntro() {
       }
       ctx.globalAlpha = 1;
 
-      if (elapsed < TOTAL_MS + 250) {
+      if (elapsed < duration + 250) {
         raf = requestAnimationFrame(frame);
       } else {
-        sessionStorage.setItem(SESSION_KEY, '1');
         setFinished(true);
       }
     };
@@ -248,7 +261,12 @@ export function PhoneCloudIntro() {
     raf = requestAnimationFrame(frame);
     return () => {
       cancelAnimationFrame(raf);
-      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointermove', onPointer);
+      window.removeEventListener('pointerdown', onPointer);
+      window.removeEventListener('touchstart', onPointer);
+      window.removeEventListener('touchmove', onPointer);
+      window.removeEventListener('resize', resizeCanvas);
+      window.visualViewport?.removeEventListener('resize', resizeCanvas);
     };
   }, [active]);
 
@@ -256,7 +274,7 @@ export function PhoneCloudIntro() {
   return (
     <canvas
       ref={canvasRef}
-      className="pointer-events-none fixed inset-0 z-50 h-full w-full"
+      className="pointer-events-none fixed inset-0 z-[1] h-[100dvh] w-full"
       aria-hidden
     />
   );

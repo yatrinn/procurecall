@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { CallTape, formatMs, type TapePin, type TapeTurn } from '@/components/call-tape';
+import type { ReplaySession } from '@/app/demo/replay-types';
+import { CallTape, formatMs } from '@/components/call-tape';
 import { PrimaryButton, QuietButton } from '@/components/form';
 
 /**
@@ -12,21 +13,7 @@ import { PrimaryButton, QuietButton } from '@/components/form';
  * what happened, when it happened. Always labeled as a replay.
  */
 
-export interface ReplaySession {
-  id: string;
-  supplier_name: string;
-  supplier_location: string | null;
-  behavior_label: string;
-  turns: TapeTurn[];
-  pins: TapePin[];
-  duration_ms: number;
-  outcome_line: string;
-  quote_before_cents: number | null;
-  quote_after_cents: number | null;
-  /** Signed URL of the call recording (voice runs). */
-  audio_url: string | null;
-  currency: string;
-}
+export type { ReplaySession } from '@/app/demo/replay-types';
 
 const SPEED = 14; // replay time compression
 
@@ -234,6 +221,9 @@ export function TalkToAgent() {
       <PrimaryButton onClick={voiceRun} disabled={busy}>
         {busy ? 'Preparing…' : 'Start a voice call now'}
       </PrimaryButton>
+      <p className="mt-2 text-xs text-steel">
+        On the next screen, tap Start voice call — Safari will ask for the microphone. Tap Allow.
+      </p>
       {error ? <p className="mt-3 text-sm text-flag">{error}</p> : null}
     </div>
   );

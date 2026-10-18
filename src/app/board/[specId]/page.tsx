@@ -62,6 +62,7 @@ export default async function BoardPage({
         <BoardClient
           specId={spec.id}
           supplierIds={(suppliers ?? []).map((s) => s.id)}
+          suppliers={(suppliers ?? []).map((s) => ({ id: s.id, name: s.name }))}
           voiceOpen={voice === '1'}
         />
       </div>

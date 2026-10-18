@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ConversationProvider, useConversation } from '@elevenlabs/react';
 import { PrimaryButton, QuietButton } from '@/components/form';
+import { stopMediaStream } from '@/lib/microphone';
 
 type Path = 'voice' | 'document' | 'text';
 
@@ -98,6 +99,8 @@ function VoiceIntake({
   vertical: string;
 }) {
   const [error, setError] = useState<string | null>(null);
+  const [textOnly, setTextOnly] = useState(false);
+  const [draft, setDraft] = useState('');
   const [turns, setTurns] = useState<TranscriptTurn[]>([]);
   const [seconds, setSeconds] = useState(0);
   const turnsRef = useRef<TranscriptTurn[]>([]);
@@ -146,48 +149,99 @@ function VoiceIntake({
     }
   }, [onTranscript]);
 
-  const start = useCallback(async () => {
+  const start = useCallback(() => {
+    if (busy || status === 'connecting') return;
     setError(null);
+    setTextOnly(false);
+    setDraft('');
     submittedRef.current = false;
     turnsRef.current = [];
     setTurns([]);
     setSeconds(0);
-    try {
-      await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch {
-      setError('Microphone access is required for the voice interview. Use document upload or typed intake instead.');
-      return;
-    }
-    const res = await fetch('/api/voice/intake-session', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ vertical }),
-    });
-    const body = (await res.json()) as {
-      signed_url?: string;
-      dynamic_variables?: Record<string, string>;
-      error?: string;
+
+    const startTextFallback = () => {
+      setTextOnly(true);
+      void (async () => {
+        const res = await fetch('/api/voice/intake-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ vertical }),
+        });
+        const body = (await res.json()) as {
+          signed_url?: string;
+          dynamic_variables?: Record<string, string>;
+          error?: string;
+        };
+        if (!res.ok || !body.signed_url) {
+          setError(body.error ?? 'Voice sessions are unavailable right now.');
+          return;
+        }
+        startedAtRef.current = Date.now();
+        conversation.startSession({
+          signedUrl: body.signed_url,
+          dynamicVariables: body.dynamic_variables,
+          textOnly: true,
+        });
+      })();
     };
-    if (!res.ok || !body.signed_url) {
-      setError(body.error ?? 'Voice sessions are unavailable right now.');
+
+    if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+      startTextFallback();
       return;
     }
-    startedAtRef.current = Date.now();
-    await conversation.startSession({
-      signedUrl: body.signed_url,
-      dynamicVariables: body.dynamic_variables,
-    });
-  }, [conversation, vertical]);
+
+    // iOS: start getUserMedia inside the tap before any await.
+    const micPromise = navigator.mediaDevices.getUserMedia({ audio: true });
+
+    void (async () => {
+      let stream: MediaStream | null = null;
+      try {
+        stream = await micPromise;
+      } catch {
+        startTextFallback();
+        return;
+      }
+      const res = await fetch('/api/voice/intake-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vertical }),
+      });
+      const body = (await res.json()) as {
+        signed_url?: string;
+        dynamic_variables?: Record<string, string>;
+        error?: string;
+      };
+      if (!res.ok || !body.signed_url) {
+        stopMediaStream(stream);
+        setError(body.error ?? 'Voice sessions are unavailable right now.');
+        return;
+      }
+      startedAtRef.current = Date.now();
+      conversation.startSession({
+        signedUrl: body.signed_url,
+        dynamicVariables: body.dynamic_variables,
+      });
+      window.setTimeout(() => stopMediaStream(stream), 2500);
+    })();
+  }, [busy, status, conversation, vertical]);
 
   const stop = useCallback(async () => {
     await conversation.endSession();
   }, [conversation]);
 
+  const sendTyped = useCallback(() => {
+    const text = draft.trim();
+    if (!text || status !== 'connected') return;
+    conversation.sendUserMessage(text);
+    setDraft('');
+  }, [conversation, draft, status]);
+
   return (
     <div>
       <p className="text-sm text-steel">
         A two-minute interview with our AI intake assistant. It discloses that it is an AI. The
-        session ends automatically after 3 minutes or 20 seconds of silence.
+        session ends automatically after 3 minutes or 20 seconds of silence. If the microphone
+        is blocked, you can type instead — no Settings needed.
       </p>
       <div className="mt-4 flex items-center gap-3">
         {status === 'connected' ? (
@@ -200,7 +254,11 @@ function VoiceIntake({
             </span>
             <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-hivis" aria-hidden />
             <span className="text-sm text-steel">
-              {conversation.isSpeaking ? 'Assistant speaking' : 'Listening'}
+              {textOnly
+                ? 'Type your answers'
+                : conversation.isSpeaking
+                  ? 'Assistant speaking'
+                  : 'Listening'}
             </span>
           </>
         ) : (
@@ -218,6 +276,27 @@ function VoiceIntake({
             </li>
           ))}
         </ol>
+      ) : null}
+      {status === 'connected' && textOnly ? (
+        <form
+          className="mt-3 flex gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            sendTyped();
+          }}
+        >
+          <input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder="Type your answer…"
+            className="min-w-0 flex-1 rounded-sm border border-line bg-paper px-2 py-1.5 text-sm"
+            autoComplete="off"
+            enterKeyHint="send"
+          />
+          <QuietButton type="submit" disabled={!draft.trim()}>
+            Send
+          </QuietButton>
+        </form>
       ) : null}
       {error ? <p className="mt-3 text-sm text-flag">{error}</p> : null}
     </div>

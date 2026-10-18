@@ -49,8 +49,12 @@
   against production), production build, CI green, RLS deny-all verified, no secrets
   in repo.
 
-## Voice status (updated 2026-07-19 morning)
+## Voice status (updated 2026-07-19 evening)
 
+- **Speak-first + token stream (2026-07-19):** spoken reply streams from
+  `MODELS.voiceSpeak` while fee tools run in parallel on `MODELS.voiceTools`.
+  Removes the ~6 s dead air after filler bridges (tools no longer block TTS).
+  Filler openers (Mm-hmm / Got it) are stripped; soft hangup after mutual bye.
 - **Voice negotiation verified END TO END on production** (scripts/voice-e2e.ts, no
   microphone needed): real ElevenLabs buyer audio out (36 chunks / 3.2 MiB), scripted
   dispatcher audio in via TTS → STT → custom-LLM brain executed tools live
