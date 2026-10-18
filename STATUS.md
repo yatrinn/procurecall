@@ -1,5 +1,22 @@
 # STATUS.md — ProcureCall
 
+## Deployment recovery check — October 18, 2026
+
+The latest production attempt at commit `eb16157` failed while prerendering
+`/demo`: `app_settings read failed: TypeError: fetch failed`. The older production
+claims below are historical and have not been revalidated for this deployment.
+
+The demo route now renders on demand, keeping the existing explicit two-minute
+replay-data cache. This prevents deployment builds from querying the runtime
+database. Local production build (including TypeScript), lint, and 55 offline
+tests pass without database credentials. The 63 provider-backed tests remain
+skipped. No data, credentials, or database policy were changed.
+
+Still open: verify the production database connection and the recorded replay on
+a deployed build. A passing build alone does not establish runtime readiness.
+
+---
+
 > Last updated: 2026-07-19 12:10 CEST · gates 1–3 and 5–7 verified in production ·
 > **Gate 4 OPEN** — blocked on the founder's golden voice run and the three videos
 

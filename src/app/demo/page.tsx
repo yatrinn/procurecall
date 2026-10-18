@@ -5,7 +5,8 @@ import { getVertical, DEFAULT_VERTICAL_SLUG } from '@/config/verticals';
 import { getDemoReplay } from '@/core/demo-replay';
 import { ReplayClient, RunLive, TalkToAgent } from './replay-client';
 
-export const revalidate = 120;
+// Replay data is loaded at request time; deployments must not depend on database availability.
+export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Demo | ProcureCall' };
 
 function ReplaySkeleton() {
